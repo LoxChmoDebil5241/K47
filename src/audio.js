@@ -89,6 +89,21 @@ export const sfx = {
     for (let i = 0; i < 6; i++) noise(0.04, 0.16 - i * 0.02, i * 0.09 + Math.random() * 0.03, 1800 + Math.random() * 1500, 'bandpass');
     tone('triangle', [140, 80], 0.2, 0.08, 0.6);
   },
+  // проглотить: глоток и сухое сглатывание
+  swallow() {
+    tone('triangle', [220, 90], 0.18, 0.18); noise(0.15, 0.06, 0.05, 600);
+    tone('triangle', [160, 70], 0.2, 0.14, 0.35); noise(0.12, 0.05, 0.4, 500);
+  },
+  // шорох и стук гранул о стенки банки; power 0..1
+  rattle(power = 0.5) {
+    const n = 1 + Math.round(power * 3);
+    for (let i = 0; i < n; i++) {
+      const d = Math.random() * 0.07;
+      tone('square', 1400 + Math.random() * 1800, 0.012, 0.025 + power * 0.03, d);
+      noise(0.025, 0.04 + power * 0.05, d, 3000 + Math.random() * 2500, 'bandpass');
+    }
+    noise(0.1, 0.03 * power, 0, 1800, 'bandpass');
+  },
   empty() { tone('square', 180, 0.12, 0.08); tone('square', 140, 0.16, 0.08, 0.12); },
   // рация: щелчок тангенты, шипение эфира, короткий писк
   ptt() {

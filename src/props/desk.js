@@ -133,7 +133,7 @@ export function buildDesk(scene, { code, eaten }) {
   }
 
   // ---------- кресло ----------
-  const chair = new THREE.Group(); chair.position.set(2.85, 0, -2.85); chair.rotation.y = -Math.PI / 2 + 0.9; scene.add(chair);
+  const chair = new THREE.Group(); chair.position.set(2.75, 0, -1.25); chair.rotation.y = -Math.PI / 2 + 0.35; scene.add(chair);
   const seatMat = std({ color: 0x1b1b1d, roughness: 0.75 });
   for (let i = 0; i < 5; i++) {
     const leg = box(0.32, 0.03, 0.04, steelDark, 0, 0.07, 0, chair);

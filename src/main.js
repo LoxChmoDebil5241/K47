@@ -122,10 +122,13 @@ const notebookUI = setupNotebookUI({
 });
 desk.notebook.setPage(...notebookUI.current());
 
+desk.jar.onSwallow = () => { sfx.crunch(); setTimeout(() => sfx.swallow(), 700); };
+desk.jar.onRattle = (p) => sfx.rattle(p);
+
 const menu = setupMenu({ onPause: () => (game.paused = true), onResume: () => (game.paused = false) });
 
 // ---------- переходы между видами ----------
-const ease = (x) => 0.5 - Math.cos(Math.PI * x) / 2;           // синусоида: мягкий разгон и торможение
+const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 const fwd = new THREE.Vector3();
 function yawPitch(q) {
   fwd.set(0, 0, -1).applyQuaternion(q);
@@ -166,7 +169,8 @@ const ACTIONS = {
   lid() { sfx.lid(desk.jar.toggleLid()); renderBar(); },
   eat() {
     if (!desk.jar.isOpen) { sfx.denied(); return; }
-    if (desk.jar.eat()) { sfx.crunch(); save.set('rpkEaten', desk.jar.eaten); } else sfx.empty();
+    const mouth = camera.position.clone().add(tmpV.set(0, -0.1, 0).applyQuaternion(camera.quaternion)).addScaledVector(camera.getWorldDirection(new THREE.Vector3()), 0.12);
+    if (desk.jar.eat(mouth)) { sfx.rattle(0.6); save.set('rpkEaten', desk.jar.eaten); } else sfx.empty();
     renderBar();
   },
   ptt() { desk.radio.ptt(); sfx.ptt(); },
@@ -189,7 +193,7 @@ function go(name, sound) {
     Object.assign(move, { y0: a.yaw, dy, p0: a.pitch, dp: b.pitch - a.pitch });
   }
   const angle = move.fromQ.angleTo(move.toQ), dist = move.fromPos.distanceTo(move.toPos);
-  move.dur = 0.8 + angle * 0.6 + dist * 0.75;
+  move.dur = 0.55 + angle * 0.35 + dist * 0.5;
   move.dist = dist; move.t = 0;
   look.x = look.y = 0;
   // звук перехода: поворот — шорох и скрип, подход/отход — шаги
@@ -330,8 +334,8 @@ function frame() {
     else baseQ.slerpQuaternions(move.fromQ, move.toQ, k);
   }
   // осмотр пальцем — с инерцией, чтобы голова не дёргалась
-  smoothLook.x += (look.x - smoothLook.x) * Math.min(1, dt * 10);
-  smoothLook.y += (look.y - smoothLook.y) * Math.min(1, dt * 10);
+  smoothLook.x += (look.x - smoothLook.x) * Math.min(1, dt * 5);
+  smoothLook.y += (look.y - smoothLook.y) * Math.min(1, dt * 5);
   lookE.set(-smoothLook.y, -smoothLook.x, 0); lookQ.setFromEuler(lookE);
   const still = ['terminal', 'notebook', 'note', 'photo', 'radio', 'headset', 'jar'].includes(view);
   breath.set(0, still ? 0 : Math.sin(t * 1.3) * 0.006, 0);

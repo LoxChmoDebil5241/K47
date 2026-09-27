@@ -111,6 +111,10 @@ export function buildJar(eatenInit = 0) {
 
   const st = { held: 0, open: 0, wantHeld: false, wantOpen: false, spin: 0.35, tilt: 0.25 };
   const homePos = new THREE.Vector3(), holdPos = new THREE.Vector3();
+  // летящая гранула: живёт в корне сцены, чтобы двигаться в мировых координатах
+  const flyMesh = new THREE.Mesh(granGeo, grains.material); flyMesh.visible = false;
+  const fly = { t: 1, from: new THREE.Vector3(), to: new THREE.Vector3() };
+  let rattle = 0, rattleCd = 0;
   const tmp = new THREE.Vector3();
 
   return {
@@ -121,13 +125,38 @@ export function buildJar(eatenInit = 0) {
     pickUp(hold) { st.wantHeld = true; holdPos.copy(hold); },
     putDown() { st.wantHeld = false; st.wantOpen = false; },
     toggleLid() { st.wantOpen = !st.wantOpen; return st.wantOpen; },
-    eat() {
-      if (!st.wantOpen || eaten >= RPK_TOTAL) return false;
-      eaten++; showGrains(); return true;
+    // гранула вылетает из горлышка к губам камеры; mouth — мировая точка «рта»
+    eat(mouth) {
+      if (!st.wantOpen || eaten >= RPK_TOTAL || fly.t < 1) return false;
+      eaten++; showGrains();
+      fly.from.copy(body.localToWorld(new THREE.Vector3(0, H + 0.01, 0)));
+      fly.to.copy(mouth); fly.t = 0; flyMesh.visible = true;
+      return true;
     },
-    rotate(dx, dy) { st.spin += dx; st.tilt = THREE.MathUtils.clamp(st.tilt + dy, -0.2, 1.1); },
+    onSwallow: null,
+    onRattle: null,
+    rotate(dx, dy) {
+      st.spin += dx; st.tilt = THREE.MathUtils.clamp(st.tilt + dy, -0.2, 1.1);
+      rattle += Math.abs(dx) + Math.abs(dy);
+    },
     update(dt) {
       const ease = (x) => x * x * (3 - 2 * x);
+      if (!flyMesh.parent) { let r = root; while (r.parent) r = r.parent; r.add(flyMesh); }
+      if (fly.t < 1) {
+        fly.t = Math.min(1, fly.t + dt / 0.7);
+        const e = ease(fly.t);
+        flyMesh.position.lerpVectors(fly.from, fly.to, e);
+        flyMesh.position.y += Math.sin(e * Math.PI) * 0.06;
+        flyMesh.rotation.set(fly.t * 9, fly.t * 6, 0);
+        flyMesh.scale.setScalar(1.6);
+        if (fly.t === 1) { flyMesh.visible = false; this.onSwallow?.(); }
+      }
+      // гранулы шуршат и стучат, пока банку крутят — чем быстрее, тем чаще
+      rattleCd -= dt;
+      if (rattle > 0.05 && rattleCd <= 0 && st.held > 0.9 && eaten < RPK_TOTAL) {
+        this.onRattle?.(Math.min(1, rattle * 4)); rattle = 0; rattleCd = 0.09;
+      }
+      rattle *= Math.max(0, 1 - dt * 6);
       st.held = THREE.MathUtils.clamp(st.held + (st.wantHeld ? dt : -dt) * 1.4, 0, 1);
       st.open = THREE.MathUtils.clamp(st.open + (st.wantOpen ? dt : -dt) * 2, 0, 1);
       const k = ease(st.held);
