@@ -12,8 +12,11 @@ export const DARK_THOUGHTS = [
   'Там кто-то есть.', 'Смотрит.', 'Не моргай.', 'Я не один.', 'Холодно...', 'Кто стучал?',
   'Это был я?', 'Номер сорок семь.', 'ОНИ ИДУТ', 'Не смотри туда.', 'Пусти.', 'Хватит.',
   'Я помню это.', 'Опять.', 'Снова цикл.', 'Кто ты?', 'ПОЗДНО',
+  'Не смотри.', 'Оно ближе.', 'Кто дышит?', 'Я слышал.', 'Не здесь.', 'ТЫ ВИДИШЬ?', 'Стой.',
+  'Там глаза.', 'Он улыбается.', 'Не шевелись.', 'Кто зовёт?', 'ОТВЕРНИСЬ', 'Уже близко.', 'Это конец?', 'Мне страшно.',
 ];
-const RISE = 5;          // секунд темноты до выстрела
+const RISE = 12;         // секунд темноты до выстрела
+const LINGER = 1;        // сколько фразы висят после того, как отвернулся
 const THOUGHTS_AT = 0.15;
 const CELL = 32;         // ширина буквы на холсте (моноширинный пиксельный шрифт)
 const FONT = `26px "Press Start 2P", monospace`;
@@ -56,9 +59,12 @@ export function createDread(scene, camera, onDeath) {
     // место — впереди, в той темноте, куда смотрит игрок: 1.4–2.6 м, с разбросом по кадру
     camera.getWorldDirection(dir);
     right.set(1, 0, 0).applyQuaternion(camera.quaternion); up.set(0, 1, 0).applyQuaternion(camera.quaternion);
-    const d = 1.4 + Math.random() * 1.2;
+    // треть фраз — прямо перед лицом, остальные — разбросаны по комнате
+    const close = Math.random() < 0.35;
+    const d = close ? 0.8 + Math.random() * 0.4 : 1.4 + Math.random() * 1.6;
+    const spread = close ? 0.35 : 1;
     th.group.position.copy(camera.position).addScaledVector(dir, d)
-      .addScaledVector(right, (Math.random() - 0.5) * d * 0.9).addScaledVector(up, (Math.random() - 0.4) * d * 0.7);
+      .addScaledVector(right, (Math.random() - 0.5) * d * 0.9 * spread).addScaledVector(up, (Math.random() - 0.4) * d * 0.7 * spread);
     th.group.quaternion.copy(camera.quaternion);
     th.group.rotateZ((Math.random() - 0.5) * 0.25);
     th.group.scale.setScalar(0.7 + Math.random() * 0.8);
@@ -106,7 +112,9 @@ export function createDread(scene, camera, onDeath) {
           if (Math.random() < 0.25) sfx.whisper();
           st.nextThought = t + (0.9 - l * 0.6) * (0.5 + Math.random());
         }
-        if (!dark) scatterAll();
+        // отвернулся — фразы ещё висят секунду, потом рассыпаются
+        st.away = dark ? 0 : (st.away || 0) + dt;
+        if (st.away > LINGER) scatterAll();
         if (l >= 1) die();
       }
       // буквы: печать, дрожь, рассыпание
