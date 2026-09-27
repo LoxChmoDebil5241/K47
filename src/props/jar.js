@@ -91,7 +91,7 @@ export function buildJar(eatenInit = 0) {
 
   // гранулы: белые, круглые, как кусочки мела — слоями на дне
   const granGeo = new THREE.SphereGeometry(0.0062, 10, 8); granGeo.scale(1, 0.62, 1);
-  const grains = new THREE.InstancedMesh(granGeo, std({ color: 0xece8dc, roughness: 0.9 }), RPK_TOTAL);
+  const grains = new THREE.InstancedMesh(granGeo, new THREE.MeshLambertMaterial({ color: 0xd8d3c6 }) /* матовые, без бликов */, RPK_TOTAL);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
   for (let i = 0; i < RPK_TOTAL; i++) {
     const layer = Math.floor(i / 10), k = i % 10;

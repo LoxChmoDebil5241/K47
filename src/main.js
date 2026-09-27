@@ -19,14 +19,16 @@ import { createDread } from './dread.js';
 
 // что думает персонаж, проглотив гранулу
 const TASTE = ['Горько. Вяжет. Солёно.', 'Отвратительно.', 'Воды к ним не дают.', 'Песок с жиром.', 'Скрипит на зубах.',
-  'Норма не ограничена.', 'Привкус пыли и химии.', 'Язык прилипает к нёбу.', 'Ещё одна. Зачем?', 'Горечь не уходит.'];
+  'Не привык. Но смирился.', 'Если есть много — лучше не станет.', 'Мне кажется, я уже дал понять, что мне это не нравится.',
+  'Норма не ограничена.', 'Привкус пыли и химии.', 'Язык прилипает к нёбу.', 'Ещё одна. Зачем?', 'Горечь не уходит.',
+  'Мел. Жир. Химия.', 'Лучше бы не ел.', 'Живот не согласен.', 'Это не еда. Это топливо.', 'Хоть что-то в этом цикле постоянно.'];
 let tasteI = Math.floor(Math.random() * 3);
 import book from './story/book.json';
 
 // ---------- рендер ----------
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.25));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.15;
 renderer.shadowMap.enabled = true;
@@ -46,11 +48,13 @@ const { desk } = room;
 const inspectLight = new THREE.PointLight(0xe4e8f4, 0, 2, 2);
 scene.add(inspectLight);
 // сила подсветки подобрана под каждый предмет: светлая бумага — чуть-чуть, банка в тени — сильнее
-const INSPECT = { note: 0.015, photo: 0.06, radio: 0.08, headset: 0.04, jar: 0.12, notebook: 0.03, drawer: 0.1 };
+const INSPECT = { note: 0.015, photo: 0.06, radio: 0.08, headset: 0.04, jar: 0.05, notebook: 0.03, drawer: 0.1 };
 
+// блум считается в половинном разрешении — заметно легче для телефона
+const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.85, 0.55, 0.55);
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.85, 0.55, 0.55));
+composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
 const ui = document.getElementById('ui');
@@ -105,6 +109,7 @@ function resize() {
   const w = innerWidth, h = innerHeight;
   renderer.setSize(w, h, false);
   composer.setSize(w, h);
+  bloom.setSize(Math.round(w / 2), Math.round(h / 2));
   uiTarget = ui.hidden ? 0 : Math.min(h * 0.4, ui.getBoundingClientRect().height);
   if (!game.started || Math.abs(uiTarget - uiH) > h * 0.3) uiH = uiTarget;
   applyOffset();
@@ -138,7 +143,7 @@ desk.jar.onSwallow = () => {
 desk.jar.onRattle = (p) => sfx.rattle(p);
 
 // гибель от страха — всё сначала, с заставки
-const dread = createDread(() => location.reload());
+const dread = createDread(scene, camera, () => location.reload());
 
 const menu = setupMenu({ onPause: () => (game.paused = true), onResume: () => (game.paused = false) });
 
@@ -356,12 +361,13 @@ function frame() {
   lookE.set(-smoothLook.y, -smoothLook.x, 0); lookQ.setFromEuler(lookE);
   // темнота: голова отвёрнута почти до упора туда, где нет света
   const fl = FREE_LOOK[view];
-  const dark = game.started && !game.paused && move.t >= 1 && !!fl && Math.abs(smoothLook.x) > 0.58 * fl;
+  const dark = game.started && !game.paused && !dread.dying && move.t >= 1 && !!fl && Math.abs(smoothLook.x) > 0.58 * fl;
   dread.update(dt, t, dark);
   const still = ['terminal', 'notebook', 'note', 'photo', 'radio', 'headset', 'jar', 'drawer'].includes(view);
   breath.set(0, still ? 0 : Math.sin(t * 1.3) * 0.006, 0);
   camera.position.copy(basePos).add(breath);
   camera.quaternion.copy(baseQ).multiply(lookQ);
+  dread.applyCamera(camera);
   inspectLight.position.copy(camera.position).add(tmpV.set(0, 0.08, 0));
   inspectLight.intensity += ((move.t > 0.6 ? INSPECT[view] || 0 : 0) - inspectLight.intensity) * Math.min(1, dt * 3);
 

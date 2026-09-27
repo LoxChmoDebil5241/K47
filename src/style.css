@@ -237,8 +237,6 @@ html, body {
   background: radial-gradient(ellipse at center, rgba(120, 0, 10, calc(.15 + var(--pulse, 0) * .1)) 20%, rgba(90, 0, 8, .92) 100%);
   mix-blend-mode: multiply;
 }
-body.dying #dread { opacity: 1 !important; background: #3a0006; transition: background 2s; mix-blend-mode: normal; }
-body.dying #game { filter: blur(3px) saturate(.3); transition: filter 2s; }
 
 /* перелистывание: настоящий лист поворачивается вокруг корешка */
 .nb-book { position: relative; perspective: 1400px; }
@@ -254,3 +252,6 @@ body.dying #game { filter: blur(3px) saturate(.3); transition: filter 2s; }
   background: linear-gradient(90deg, rgba(0,0,0,var(--shade, 0)), transparent 70%);
 }
 .nb-leaf .txt { padding: 8px 14px 14px 48px; margin-top: 4px; font: 27px/34px var(--f-hand); color: #2a2440; white-space: pre-wrap; word-break: break-word; }
+#dread { mix-blend-mode: normal; background: radial-gradient(ellipse at center, rgba(120, 0, 10, calc(.08 + var(--pulse, 0) * .12)) 25%, rgba(70, 0, 6, .95) 100%); }
+#shot { position: fixed; inset: 0; z-index: 470; pointer-events: none; background: #fff; opacity: 0; transition: opacity .8s; }
+#shot.on { opacity: 1; transition: none; }
