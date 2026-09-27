@@ -118,6 +118,8 @@ export const sfx = {
     for (let i = 0; i < 7; i++) real(0.015, 0.1, i * dur / 7, 5000, 'highpass');
     real(0.05, 0.14, dur, open ? 2800 : 1500, 'bandpass');
   },
+  // гранула падает на бетон: пара мелких отскоков
+  tick() { real(0.02, 0.25, 0, 4000, 'bandpass'); real(0.015, 0.14, 0.12, 4500, 'bandpass'); real(0.01, 0.07, 0.2, 5000, 'bandpass'); },
   crunch() { for (let i = 0; i < 6; i++) real(0.04, 0.2 - i * 0.025, i * 0.09 + Math.random() * 0.03, 1800 + Math.random() * 1800, 'bandpass'); },
   // глоток: низкий «гульп» и сухое сглатывание
   swallow() { sine(180, 0.12, 0.2); real(0.12, 0.08, 0.02, 500); sine(130, 0.14, 0.16, 0.3); real(0.1, 0.06, 0.32, 400); },

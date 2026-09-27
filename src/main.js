@@ -140,7 +140,15 @@ const notebookUI = setupNotebookUI({
 });
 desk.notebook.setPage(...notebookUI.current());
 
+let dropping = false; // гранула выпала из рук
 desk.jar.onSwallow = () => {
+  if (dropping) {
+    // упала на пол: стук, персонаж сам смотрит вниз, через 5 секунд ругается
+    sfx.tick();
+    look.y = 0.55; look.x = 0.1;
+    setTimeout(() => { say('Блядь...'); dropping = false; }, 5000);
+    return;
+  }
   sfx.crunch(); setTimeout(() => sfx.swallow(), 700);
   // реакция персонажа: по очереди, без повторов подряд
   const n = desk.jar.eaten; // одна фраза на каждую гранулу, по порядку
@@ -200,7 +208,10 @@ const ACTIONS = {
   lid() { sfx.lid(desk.jar.toggleLid(), LID_TIME); renderBar(); },
   eat() {
     if (!desk.jar.isOpen) { sfx.denied(); return; }
+    if (dropping) return;
     const mouth = camera.position.clone().add(tmpV.set(0, -0.1, 0).applyQuaternion(camera.quaternion)).addScaledVector(camera.getWorldDirection(new THREE.Vector3()), 0.12);
+    // 5% — пальцы не удержали, гранула летит на пол
+    if (Math.random() < 0.05) { dropping = true; mouth.set(camera.position.x + 0.25, 0.02, camera.position.z + 0.1); }
     if (desk.jar.eat(mouth)) { sfx.rattle(0.6); save.set('rpkEaten', desk.jar.eaten); } else sfx.empty();
     renderBar();
   },
