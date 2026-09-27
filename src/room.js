@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { concrete, photo, metal, shadowGradient, plastic } from './textures.js';
-import { std, box, cyl } from './geom.js';
+import { std, box, cyl, canvasTex } from './geom.js';
 import { buildAirlock } from './airlock.js';
 import { buildDesk } from './props/desk.js';
 
@@ -86,6 +86,13 @@ export function buildRoom(scene, terminalTexture, save) {
   box(0.58, 0.46, 0.02, std({ color: 0x0c0c0c, roughness: 0.9 }), 0, 0, 0.23, crt);
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.39), new THREE.MeshBasicMaterial({ map: terminalTexture, toneMapped: false }));
   screen.position.z = 0.241; crt.add(screen);
+  // инвентарный номер на корпусе — первая часть кода
+  const tag = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.035), std({
+    map: canvasTex(256, 44, (c, w, hh) => {
+      c.fillStyle = '#c8c2b0'; c.fillRect(0, 0, w, hh); c.strokeStyle = '#555'; c.strokeRect(2, 2, w - 4, hh - 4);
+      c.fillStyle = '#222'; c.font = 'bold 22px "PT Mono", monospace'; c.fillText(`OBJ-4471 · ${save.monitorCode}`, 12, 30);
+    }), roughness: 0.6 }));
+  tag.position.set(0.16, 0.25, 0.232); crt.add(tag);
   crt.position.set(0, 1.04, z0 + 0.42); scene.add(crt);
   box(0.5, 0.03, 0.17, plasticMat, 0, 0.78, z0 + 0.82, scene, 6).rotation.x = 0.08;
   hits.screen = screen;

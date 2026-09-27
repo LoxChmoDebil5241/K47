@@ -1,13 +1,15 @@
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
-import { sfx, duck } from '../audio.js';
+import { sfx, duck, setMuted } from '../audio.js';
+import { save } from '../state.js';
 
-// Меню паузы. Работают «Продолжить» и «Выйти» (с подтверждением) — остальное пока только щёлкает.
-export function setupMenu({ onPause, onResume }) {
-  const btn = document.getElementById('menuBtn');
-  const pause = document.getElementById('pause');
-  const confirm = document.getElementById('confirm');
+// Меню паузы: продолжить, сохранения (сохранить / загрузить / удалить), настройки,
+// закончить цикл (всё заново) и выйти. Каждое опасное действие — с подтверждением.
+export function setupMenu({ onPause, onResume, describe }) {
+  const $ = (id) => document.getElementById(id);
+  const btn = $('menuBtn'), pause = $('pause'), saves = $('saves'), settings = $('settings'), confirm = $('confirm');
   const state = { open: false };
+  let onYes = null;
 
   function open() {
     if (state.open) return;
@@ -16,31 +18,76 @@ export function setupMenu({ onPause, onResume }) {
   }
   function close() {
     if (!state.open) return;
-    state.open = false; pause.hidden = true; confirm.hidden = true; btn.style.visibility = '';
+    state.open = false; for (const m of [pause, saves, settings, confirm]) m.hidden = true; btn.style.visibility = '';
     sfx.menuClose(); duck(false); onResume?.();
   }
-  async function exit() {
-    sfx.confirm();
-    confirm.hidden = true;
-    document.getElementById('bye').hidden = false;
+  function ask(title, sub, yes) {
+    $('cfTitle').textContent = title; $('cfSub').textContent = sub; onYes = yes; confirm.hidden = false; sfx.click();
+  }
+  const sub = (m) => { sfx.click(); pause.hidden = true; m.hidden = false; };
+  const back = () => { sfx.back(); saves.hidden = settings.hidden = true; pause.hidden = false; };
+
+  // ---------- сохранения ----------
+  const slots = () => save.get('slots', []);
+  function renderSlots() {
+    const list = $('svList'); list.innerHTML = '';
+    const all = slots();
+    if (!all.length) { const p = document.createElement('p'); p.className = 'sub'; p.textContent = 'ПУСТО'; list.appendChild(p); }
+    all.forEach((s, i) => {
+      const row = document.createElement('div'); row.className = 'slot';
+      const info = document.createElement('p'); info.innerHTML = `<b></b><span></span>`;
+      info.querySelector('b').textContent = s.label;
+      info.querySelector('span').textContent = new Date(s.time).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const load = document.createElement('button'); load.className = 'px'; load.textContent = 'ЗАГРУЗИТЬ';
+      load.onclick = () => ask('ЗАГРУЗИТЬ?', 'ТЕКУЩИЙ ПРОГРЕСС ЗАМЕНИТСЯ', () => { save.restore(s.data); location.reload(); });
+      const del = document.createElement('button'); del.className = 'px danger'; del.textContent = 'X';
+      del.onclick = () => ask('УДАЛИТЬ?', s.label, () => { const a = slots(); a.splice(i, 1); save.set('slots', a); renderSlots(); });
+      row.append(info, load, del); list.appendChild(row);
+    });
+  }
+  $('svNew').onclick = () => {
+    const a = slots(); a.unshift({ time: Date.now(), label: describe(), data: save.snapshot() });
+    save.set('slots', a.slice(0, 12)); sfx.confirm(); renderSlots();
+  };
+
+  // ---------- настройки ----------
+  const renderSettings = () => {
+    $('stSound').textContent = `ЗВУК: ${save.get('mute', false) ? 'ВЫКЛ' : 'ВКЛ'}`;
+    $('stFx').textContent = `ЭФФЕКТЫ ЭКРАНА: ${save.get('noFx', false) ? 'ВЫКЛ' : 'ВКЛ'}`;
+    $('stRead').textContent = `РЕЖИМ: ${save.get('readMode', false) ? 'ЧТЕНИЕ' : 'ИГРА'}`;
+    document.body.classList.toggle('no-fx', save.get('noFx', false));
+  };
+  $('stSound').onclick = () => { save.set('mute', !save.get('mute', false)); setMuted(save.get('mute')); sfx.click(); renderSettings(); };
+  $('stFx').onclick = () => { save.set('noFx', !save.get('noFx', false)); sfx.click(); renderSettings(); };
+  $('stRead').onclick = () => { save.set('readMode', !save.get('readMode', false)); sfx.click(); renderSettings(); };
+  renderSettings(); setMuted(save.get('mute', false));
+
+  // ---------- кнопки ----------
+  btn.addEventListener('click', (e) => { e.stopPropagation(); open(); });
+  $('pmContinue').onclick = close;
+  $('pmSaves').onclick = () => { renderSlots(); sub(saves); };
+  $('pmSettings').onclick = () => { renderSettings(); sub(settings); };
+  document.querySelectorAll('.sub-modal [data-back]').forEach((b) => (b.onclick = back));
+  $('pmEnd').onclick = () => ask('ЗАКОНЧИТЬ ЦИКЛ?', 'ВЕСЬ ПРОГРЕСС БУДЕТ СТЁРТ', () => { save.wipe(); location.reload(); });
+  $('pmExit').onclick = () => ask('ВЫЙТИ ИЗ ИГРЫ?', 'НЕСОХРАНЁННЫЙ ЦИКЛ БУДЕТ ПОТЕРЯН', exit);
+  $('cfNo').onclick = () => { sfx.back(); confirm.hidden = true; };
+  $('cfYes').onclick = () => { sfx.confirm(); confirm.hidden = true; onYes?.(); };
+
+  function exit() {
+    $('bye').hidden = false;
     setTimeout(async () => {
       if (Capacitor.isNativePlatform()) { try { await App.exitApp(); } catch { /* уже закрыто */ } }
       else window.close();
     }, 900);
   }
 
-  btn.addEventListener('click', (e) => { e.stopPropagation(); open(); });
-  document.getElementById('pmContinue').addEventListener('click', close);
-  pause.querySelectorAll('[data-dummy]').forEach((b) => b.addEventListener('click', () => sfx.click()));
-  document.getElementById('pmExit').addEventListener('click', () => { sfx.click(); confirm.hidden = false; });
-  document.getElementById('cfNo').addEventListener('click', () => { sfx.back(); confirm.hidden = true; });
-  document.getElementById('cfYes').addEventListener('click', exit);
   addEventListener('keydown', (e) => {
     if (btn.hidden || e.target.tagName === 'TEXTAREA') return;
-    if (e.key === 'Escape' && state.open) { e.stopImmediatePropagation(); if (!confirm.hidden) { confirm.hidden = true; sfx.back(); } else close(); }
-    else if (e.key === 'p' || e.key === 'з') { state.open ? close() : open(); }
+    if (e.key === 'Escape' && state.open) {
+      e.stopImmediatePropagation();
+      if (!confirm.hidden) { confirm.hidden = true; sfx.back(); } else if (!saves.hidden || !settings.hidden) back(); else close();
+    } else if (e.key === 'p' || e.key === 'з') { state.open ? close() : open(); }
   }, true);
-  // системная кнопка «назад» на Android открывает/закрывает меню
   if (Capacitor.isNativePlatform()) App.addListener('backButton', () => (state.open ? close() : open()));
 
   return { state, show() { btn.hidden = false; }, open, close };

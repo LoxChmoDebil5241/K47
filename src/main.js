@@ -9,13 +9,14 @@ import { OPEN_TIME } from './airlock.js';
 import { Terminal } from './terminal.js';
 import { VIEWS, BARS, HINTS, KEYS, FREE_LOOK, TAPS, TAP_SOUND } from './views.js';
 import { sfx, unlockAudio, startAmbience } from './audio.js';
-import { save, stickyCode } from './state.js';
+import { save, stickyCode, codeParts } from './state.js';
 import { runBoot } from './ui/boot.js';
 import { setupMenu } from './ui/menu.js';
 import { setupNotebookUI } from './ui/notebookUI.js';
 import { RPK_TOTAL, LID_TIME } from './props/jar.js';
 import { say } from './ui/say.js';
 import { createDread } from './dread.js';
+import { setupReader } from './ui/reader.js';
 
 // что думает персонаж, проглотив гранулу
 const TASTE = [
@@ -44,8 +45,8 @@ scene.background = new THREE.Color(0x000000);
 scene.fog = new THREE.FogExp2(0x020203, 0.07);
 
 const camera = new THREE.PerspectiveCamera(70, 1, 0.01, 60);
-const terminal = new Terminal(book);
-const room = buildRoom(scene, terminal.texture, { code: stickyCode(), eaten: save.get('rpkEaten', 0) });
+const terminal = new Terminal(book, codeParts());
+const room = buildRoom(scene, terminal.texture, { code: stickyCode(), monitorCode: codeParts()[0], eaten: save.get('rpkEaten', 0) });
 const { desk } = room;
 
 // «глаза привыкли»: мягкий нейтральный свет у лица, когда рассматриваем предмет вблизи
@@ -101,11 +102,11 @@ const basePos = new THREE.Vector3(), baseQ = move.toQ.clone();
 
 // центр кадра — посередине свободной области над кнопками, а не посередине экрана
 // высота панели меняется плавно, чтобы кадр не прыгал при смене набора кнопок
-let uiH = 0, uiTarget = 0;
+let uiH = 0, uiTarget = 0, baseFov = 62;
 function applyOffset() {
   const w = innerWidth, h = innerHeight;
   camera.aspect = w / (h + uiH);
-  camera.fov = w < h ? 88 : 62; // в портрете шире, чтобы предметы помещались
+  camera.fov = baseFov = w < h ? 88 : 62; // в портрете шире, чтобы предметы помещались
   camera.setViewOffset(w, h + uiH, 0, uiH, w, h);
   camera.updateProjectionMatrix();
 }
@@ -148,9 +149,12 @@ desk.jar.onSwallow = () => {
 desk.jar.onRattle = (p) => sfx.rattle(p);
 
 // гибель от страха — всё сначала, с заставки
-const dread = createDread(scene, camera, () => location.reload());
+const dread = createDread(scene, camera, () => location.reload(), `· ${codeParts()[2].split('').join(' ')} ·`);
 
-const menu = setupMenu({ onPause: () => (game.paused = true), onResume: () => (game.paused = false) });
+const menu = setupMenu({
+  onPause: () => (game.paused = true), onResume: () => (game.paused = false),
+  describe: () => { const ch = Math.min(save.get('chapter', 0), book.length - 1); return `ГЛ. ${ch} «${book[ch].title.replace(/\.$/, '')}» · ${save.get('screen', 100)}%`; },
+});
 
 // ---------- переходы между видами ----------
 const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
@@ -253,7 +257,8 @@ function renderBar() {
 renderBar();
 
 addEventListener('keydown', (e) => {
-  if (!game.started || game.paused || e.target.tagName === 'TEXTAREA') return;
+  if (!game.started || game.paused || e.target.tagName === 'TEXTAREA' || reader.isOpen) return;
+  if (view === 'terminal' && terminal.key(e.key)) return;
   const to = KEYS[view]?.[e.key];
   if (!to) return;
   const defs = BARS[view].flat();
@@ -292,7 +297,7 @@ canvas.addEventListener('pointermove', (e) => {
   const k = 2 / Math.min(innerWidth, innerHeight);
   if (view === 'terminal') {
     drag.acc += dy;
-    while (Math.abs(drag.acc) > 36) { terminal.scroll(drag.acc > 0 ? -1 : 1); drag.acc -= Math.sign(drag.acc) * 36; }
+    while (Math.abs(drag.acc) > 36) { terminal.scrollBy(drag.acc > 0 ? -1 : 1); drag.acc -= Math.sign(drag.acc) * 36; }
     return;
   }
   if (view === 'jar') { desk.jar.rotate(dx * k * 2, dy * k); return; }
@@ -313,10 +318,20 @@ canvas.addEventListener('pointerup', (e) => {
   if (to[0] !== '@') sfx.click();
   go(to, view === 'desk' ? 'step' : TAP_SOUND[to]);
 });
-canvas.addEventListener('wheel', (e) => { if (view === 'terminal') terminal.scroll(Math.sign(e.deltaY)); }, { passive: true });
+canvas.addEventListener('wheel', (e) => { if (view === 'terminal') terminal.scrollBy(Math.sign(e.deltaY)); }, { passive: true });
 
 terminal.onKey = () => sfx.key();
 terminal.onPage = () => sfx.page();
+terminal.onDeny = () => sfx.denied();
+terminal.onGrant = () => sfx.confirm();
+terminal.onExit = () => go('outside', 'back');
+// «затягивает в экран»: камера наезжает в стекло, экран вспыхивает, открывается глава
+const reader = setupReader(book, { onClose: () => { pull.target = 0; sfx.whoosh(0.8); ui.hidden = false; } });
+const pull = { k: 0, target: 0 };
+terminal.onRead = (ch) => {
+  pull.target = 1; sfx.whoosh(1.2); sfx.enter();
+  setTimeout(() => { reader.open(ch); ui.hidden = true; }, 900);
+};
 
 // ---------- атмосфера ----------
 let neonLevel = 1, neonTarget = 1, nextFlicker = 6, nextThud = 30;
@@ -373,6 +388,12 @@ function frame() {
   camera.position.copy(basePos).add(breath);
   camera.quaternion.copy(baseQ).multiply(lookQ);
   dread.applyCamera(camera);
+  // наезд в экран терминала
+  pull.k += (pull.target - pull.k) * Math.min(1, dt * 3);
+  if (pull.k > 0.001) {
+    camera.translateZ(-pull.k * 0.22);
+    camera.fov = baseFov * (1 - pull.k * 0.5); camera.updateProjectionMatrix();
+  } else if (camera.fov !== baseFov) { camera.fov = baseFov; camera.updateProjectionMatrix(); }
   inspectLight.position.copy(camera.position).add(tmpV.set(0, 0.08, 0));
   inspectLight.intensity += ((move.t > 0.6 ? INSPECT[view] || 0 : 0) - inspectLight.intensity) * Math.min(1, dt * 3);
 
@@ -390,6 +411,8 @@ window.__k47 = {
     return [(v.x + 1) / 2, (1 - v.y) / 2];
   },
   get view() { return view; },
+  term: () => terminal.state,
+  tapTerm: (u, v) => terminal.tap(u, v),
   get moving() { return move.t < 1; },
 };
 

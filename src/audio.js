@@ -6,7 +6,7 @@ export function unlockAudio() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     ctx = new AC();
-    master = ctx.createGain(); master.gain.value = 0.5; master.connect(ctx.destination);
+    master = ctx.createGain(); master.gain.value = muted ? 0 : 0.5; master.connect(ctx.destination);
     // «8-битный» шум: ступенчатый, с низкой частотой выборки
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const d = noiseBuf.getChannelData(0);
@@ -160,11 +160,15 @@ export const sfx = {
   glitch() { for (let i = 0; i < 4; i++) tone('square', 200 + Math.random() * 2000, 0.02, 0.04, i * 0.03); noise(0.08, 0.06, 0, 6000, 'highpass'); },
 };
 
+// полностью выключить звук (настройки)
+let muted = false;
+export function setMuted(m) { muted = m; if (ctx) master.gain.value = m ? 0 : 0.5; }
+
 // приглушить всё (пауза) и вернуть
 export function duck(on) {
   if (!ctx) return;
   master.gain.cancelScheduledValues(ctx.currentTime);
-  master.gain.linearRampToValueAtTime(on ? 0.18 : 0.5, ctx.currentTime + 0.25);
+  master.gain.linearRampToValueAtTime(muted ? 0 : on ? 0.18 : 0.5, ctx.currentTime + 0.25);
 }
 
 // гул заставки: низкий дрон, который гаснет при входе в игру

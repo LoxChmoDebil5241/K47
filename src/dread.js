@@ -46,28 +46,29 @@ function makeThought(text) {
   return { group, letters, mat, tex, text };
 }
 
-export function createDread(scene, camera, onDeath) {
+export function createDread(scene, camera, onDeath, secret) {
   const veil = document.createElement('div'); veil.id = 'dread'; document.body.appendChild(veil);
   const flash = document.createElement('div'); flash.id = 'shot'; document.body.appendChild(flash);
   const st = { level: 0, dying: 0, nextBeat: 0, nextThought: 0 };
   const thoughts = [];
   const dir = new THREE.Vector3(), right = new THREE.Vector3(), up = new THREE.Vector3();
 
-  function spawn() {
-    const text = DARK_THOUGHTS[Math.floor(Math.random() * DARK_THOUGHTS.length)];
+  function spawn(forced) {
+    const text = forced || DARK_THOUGHTS[Math.floor(Math.random() * DARK_THOUGHTS.length)];
     const th = makeThought(text);
     // место — впереди, в той темноте, куда смотрит игрок: 1.4–2.6 м, с разбросом по кадру
     camera.getWorldDirection(dir);
     right.set(1, 0, 0).applyQuaternion(camera.quaternion); up.set(0, 1, 0).applyQuaternion(camera.quaternion);
     // треть фраз — прямо перед лицом, остальные — разбросаны по комнате
-    const close = Math.random() < 0.35;
-    const d = close ? 0.8 + Math.random() * 0.4 : 1.4 + Math.random() * 1.6;
+    const close = !forced && Math.random() < 0.35;
+    const d = forced ? 2.4 : close ? 1.3 + Math.random() * 0.4 : 2.0 + Math.random() * 1.8;
     const spread = close ? 0.35 : 1;
     th.group.position.copy(camera.position).addScaledVector(dir, d)
       .addScaledVector(right, (Math.random() - 0.5) * d * 0.9 * spread).addScaledVector(up, (Math.random() - 0.4) * d * 0.7 * spread);
     th.group.quaternion.copy(camera.quaternion);
     th.group.rotateZ((Math.random() - 0.5) * 0.25);
-    th.group.scale.setScalar(0.7 + Math.random() * 0.8);
+    th.group.scale.setScalar(forced ? 2.2 : 0.9 + Math.random() * 1.0);
+    if (forced) { th.cps = 4; th.shake = 0.006; th.voice = true; scene.add(th.group); thoughts.push(th); return; }
     th.cps = Math.random() < 0.4 ? 3 + Math.random() * 4 : 12 + Math.random() * 20; // одни ползут, другие вспыхивают
     th.shown = 0; th.age = 0; th.shake = 0.004 + Math.random() * 0.01; th.scatter = 0;
     th.voice = Math.random() < 0.5;
@@ -107,6 +108,10 @@ export function createDread(scene, camera, onDeath) {
         veil.style.opacity = String(Math.min(1, l * 1.15));
         veil.style.setProperty('--pulse', String(0.5 + 0.5 * Math.sin(t * (4 + l * 8))));
         if (l > 0.05 && t > st.nextBeat) { sfx.heartbeat(l); st.nextBeat = t + 1.0 - l * 0.65; }
+        // часть кода: на 4-й секунде темноты медленно проступают четыре цифры
+        st.darkT = dark ? (st.darkT || 0) + dt : 0;
+        if (secret && st.darkT >= 4 && !st.secretShown) { st.secretShown = true; spawn(secret); sfx.whisper(); }
+        if (!dark) st.secretShown = false;
         if (dark && l > THOUGHTS_AT && t > st.nextThought && thoughts.length < 14) {
           spawn();
           if (Math.random() < 0.25) sfx.whisper();

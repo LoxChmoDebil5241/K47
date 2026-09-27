@@ -30,7 +30,7 @@ export const VIEWS = {
 
 // Кнопки: ряды снизу вверх не важны — ряды идут сверху вниз, каждый растянут на всю ширину.
 // [подпись (или функция от состояния), куда или @действие, звук]
-const doorLabel = (s) => (s.door.open ? 'ЗАКРЫТЬ ШЛЮЗ' : 'ОТКРЫТЬ ШЛЮЗ');
+const doorLabel = (s) => (s.door.open ? 'ЗАКРЫТЬ ВОРОТА' : 'ОТКРЫТЬ ВОРОТА');
 export const BARS = {
   outside: [
     [['◀ К СТЕНЕ', 'wall', 'turn'], ['ОБЕРНУТЬСЯ', 'turn', 'turn'], ['К СТОЛУ ▶', 'desk', 'turn']],
@@ -52,7 +52,7 @@ export const BARS = {
     [(s) => (s.jar.isOpen ? 'ЗАКРЫТЬ' : 'ОТКРЫТЬ'), '@lid', null],
     [(s) => (s.jar.eaten >= RPK_TOTAL ? 'ПУСТО' : 'СЪЕСТЬ'), '@eat', null],
   ]],
-  turn: [[['К ТЕРМИНАЛУ', 'outside', 'turn'], ['ПОДОЙТИ К ШЛЮЗУ', 'door', 'step']]],
+  turn: [[['К ТЕРМИНАЛУ', 'outside', 'turn'], ['ПОДОЙТИ К ВОРОТАМ', 'door', 'step']]],
   door: [[['ОТОЙТИ', 'turn', 'step'], [doorLabel, '@door', null]]],
 };
 
@@ -68,8 +68,8 @@ export const HINTS = {
   drawer: 'ЧУЖИЕ ВЕЩИ. НЕ МОИ?',
   radio: 'НАЖМИ НА РАЦИЮ — ТАНГЕНТА',
   jar: (s) => `ВЕДИ — ПОКРУТИТЬ · ГРАНУЛ: ${RPK_TOTAL - s.jar.eaten} / ${RPK_TOTAL}`,
-  turn: 'ШЛЮЗ. НАЖМИ НА НЕГО',
-  door: 'НАЖМИ НА ШЛЮЗ',
+  turn: 'ГЕРМОВОРОТА. НАЖМИ НА НИХ',
+  door: 'НАЖМИ НА ВОРОТА',
 };
 
 // Клавиатура: стрелки как в референсе
@@ -91,7 +91,7 @@ export const KEYS = {
 };
 
 // Где разрешён свободный осмотр пальцем (взгляд остаётся там, куда повернули)
-export const FREE_LOOK = { outside: 1, wall: 1, desk: 1, turn: 1, door: 0.6, wallClose: 0.6, deskClose: 0.6 };
+export const FREE_LOOK = { outside: 1, wall: 1.8, desk: 1, turn: 1, door: 0.6, wallClose: 1.2, deskClose: 0.6 };
 
 // Что можно нажать в каждом виде: имя объекта → вид или @действие
 const DESK_ITEMS = { notebook: 'notebook', note: 'note', photo: 'photo', headset: 'headset', radio: 'radio', jar: 'jar', drawer: 'drawer' };

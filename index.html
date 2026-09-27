@@ -40,20 +40,41 @@
       <p class="sub">ИГРОВОЕ ВРЕМЯ ОСТАНОВЛЕНО</p>
       <div class="list">
         <button class="px" id="pmContinue">ПРОДОЛЖИТЬ</button>
-        <button class="px" data-dummy>СОХРАНИТЬ ПРОГРЕСС</button>
-        <button class="px" data-dummy>НАСТРОЙКИ</button>
-        <button class="px danger" data-dummy>ЗАКОНЧИТЬ ЦИКЛ</button>
+        <button class="px" id="pmSaves">СОХРАНЕНИЯ</button>
+        <button class="px" id="pmSettings">НАСТРОЙКИ</button>
+        <button class="px danger" id="pmEnd">ЗАКОНЧИТЬ ЦИКЛ</button>
         <button class="px" id="pmExit">ВЫЙТИ</button>
+      </div>
+    </div>
+  </div>
+  <div id="saves" class="modal sub-modal" hidden role="dialog" aria-modal="true">
+    <div class="panel">
+      <h2>СОХРАНЕНИЯ</h2>
+      <p class="sub">СОХРАНЁННЫЕ МОМЕНТЫ ЦИКЛА</p>
+      <button class="px" id="svNew">СОХРАНИТЬ ПРОГРЕСС</button>
+      <div class="slots" id="svList"></div>
+      <button class="px" data-back>НАЗАД</button>
+    </div>
+  </div>
+  <div id="settings" class="modal sub-modal" hidden role="dialog" aria-modal="true">
+    <div class="panel">
+      <h2>НАСТРОЙКИ</h2>
+      <p class="sub">&nbsp;</p>
+      <div class="list">
+        <button class="px" id="stSound"></button>
+        <button class="px" id="stFx"></button>
+        <button class="px" id="stRead"></button>
+        <button class="px" data-back>НАЗАД</button>
       </div>
     </div>
   </div>
   <div id="confirm" class="modal confirm" hidden role="dialog" aria-modal="true">
     <div class="panel">
-      <h2>ВЫЙТИ ИЗ ИГРЫ?</h2>
-      <p class="sub">НЕСОХРАНЁННЫЙ ЦИКЛ БУДЕТ ПОТЕРЯН</p>
+      <h2 id="cfTitle">ВЫЙТИ ИЗ ИГРЫ?</h2>
+      <p class="sub" id="cfSub">НЕСОХРАНЁННЫЙ ЦИКЛ БУДЕТ ПОТЕРЯН</p>
       <div class="row">
         <button class="px" id="cfNo">НЕТ</button>
-        <button class="px danger" id="cfYes">ДА, ВЫЙТИ</button>
+        <button class="px danger" id="cfYes">ДА</button>
       </div>
     </div>
   </div>
