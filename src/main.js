@@ -381,8 +381,11 @@ function frame() {
   lookE.set(-smoothLook.y, -smoothLook.x, 0); lookQ.setFromEuler(lookE);
   // темнота: голова отвёрнута почти до упора туда, где нет света
   const fl = FREE_LOOK[view];
-  const dark = game.started && !game.paused && !dread.dying && move.t >= 1 && !!fl && (Math.abs(smoothLook.x) > 0.3 * fl || smoothLook.y > 0.3 * fl);
-  dread.update(dt, t, dark);
+  const ok = game.started && !game.paused && !dread.dying && move.t >= 1 && !!fl;
+  // у терминала — только взгляд влево, там проступает код; в остальных местах — страх темноты
+  const atTerm = view === 'outside';
+  const dark = ok && (atTerm ? smoothLook.x < -0.3 : Math.abs(smoothLook.x) > 0.3 * fl || smoothLook.y > 0.3 * fl);
+  dread.update(dt, t, dark, atTerm);
   const still = ['terminal', 'notebook', 'note', 'photo', 'radio', 'headset', 'jar', 'drawer'].includes(view);
   breath.set(0, still ? 0 : Math.sin(t * 1.3) * 0.006, 0);
   camera.position.copy(basePos).add(breath);
