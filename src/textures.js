@@ -127,3 +127,31 @@ export function frozenWall(seed = 42, repeat = 1) {
     }
   }, repeat);
 }
+
+// Выцветшая фотография: силуэт человека в зерне и пятнах.
+export function photo(seed) {
+  return canvasTexture(256, (g, s) => {
+    const r = rand(seed);
+    g.fillStyle = '#d8d2c2'; g.fillRect(0, 0, s, s);
+    const tone = 70 + r() * 50;
+    g.fillStyle = `rgb(${tone},${tone - 6},${tone - 14})`; g.fillRect(14, 14, s - 28, s - 50);
+    // силуэт: голова и плечи
+    const cx = s / 2 + (r() - 0.5) * 60;
+    g.fillStyle = 'rgba(15,12,10,.85)';
+    g.beginPath(); g.ellipse(cx, 100, 34, 42, 0, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(cx, 210, 80, 60, 0, Math.PI, 0); g.fill();
+    // иногда лицо зачёркнуто
+    if (r() < 0.4) {
+      g.strokeStyle = 'rgba(150,10,20,.85)'; g.lineWidth = 6;
+      g.beginPath(); g.moveTo(cx - 40, 60); g.lineTo(cx + 40, 140); g.moveTo(cx + 40, 60); g.lineTo(cx - 40, 140); g.stroke();
+    }
+    const img = g.getImageData(0, 0, s, s);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const n = (r() - 0.5) * 50;
+      img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n;
+    }
+    g.putImageData(img, 0, 0);
+    g.fillStyle = '#2a2a3a'; g.font = '16px "Courier New", monospace';
+    g.fillText(`К-${String(40 + Math.floor(r() * 8))}`, 20, s - 14);
+  });
+}

@@ -5,15 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
   <title>K47</title>
-  <link rel="stylesheet" href="./src/style.css" />
 </head>
 <body>
   <canvas id="game"></canvas>
   <div id="grain"></div>
   <div id="vignette"></div>
-  <div id="choices"></div>
-  <button id="back" hidden>✕</button>
-  <div id="hint">Проведите пальцем, чтобы осмотреться.<br />Коснитесь терминала или блокнота.</div>
+  <div id="fade"></div>
+  <nav id="ui">
+    <p id="hint"></p>
+    <div id="bar"></div>
+  </nav>
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>

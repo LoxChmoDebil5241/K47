@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { concrete, ice, frozenWall, notebookPage } from './textures.js';
+import { concrete, ice, frozenWall, notebookPage, photo } from './textures.js';
 
 // Комната: игрок сидит в центре лицом к -Z.
 // Прямо — терминал, справа (+X) — стол с блокнотом, слева (-X) — обледенелая стена,
@@ -151,6 +151,26 @@ export function buildRoom(scene, terminalTexture) {
     iceGroup.add(c);
   }
   scene.add(iceGroup);
+
+  // вмёрзшие в лёд фотографии предшественников
+  const pinMat = new THREE.MeshBasicMaterial({ color: 0xff2030, toneMapped: false });
+  const glaze = new THREE.MeshStandardMaterial({ color: 0xcfe6ff, transparent: true, opacity: 0.28, roughness: 0.05, metalness: 0.2 });
+  const photos = [[0.55, 1.62, -0.05], [-0.1, 1.5, 0.08], [0.3, 1.18, -0.12], [-0.55, 1.3, 0.1], [0.95, 1.3, 0.06], [-0.35, 1.85, -0.04]];
+  photos.forEach(([z, y, rot], i) => {
+    const ph = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.2), mat(photo(100 + i * 7), { roughness: 0.7 }));
+    ph.rotation.set(0, Math.PI / 2, rot); ph.position.set(-w / 2 + 0.015, y, z);
+    scene.add(ph);
+    const g2 = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.28), glaze);
+    g2.rotation.copy(ph.rotation); g2.position.set(-w / 2 + 0.03, y - 0.02, z);
+    scene.add(g2);
+    const pin = new THREE.Mesh(new THREE.SphereGeometry(0.008, 8, 6), pinMat);
+    pin.position.set(-w / 2 + 0.025, y + 0.085, z); scene.add(pin);
+  });
+  // красная нить между фото
+  const pts = photos.map(([z, y]) => new THREE.Vector3(-w / 2 + 0.03, y + 0.085, z));
+  const thread = new THREE.Line(new THREE.BufferGeometry().setFromPoints([pts[0], pts[1], pts[3], pts[2], pts[4]]),
+    new THREE.LineBasicMaterial({ color: 0xaa1020 }));
+  scene.add(thread);
   // холодная подсветка льда
   const iceLight = new THREE.PointLight(0x4a8cff, 1.4, 4, 1.5);
   iceLight.position.set(-0.7, 2.2, 0.3); scene.add(iceLight);
@@ -159,9 +179,5 @@ export function buildRoom(scene, terminalTexture) {
 
   return {
     screen, notebook: page, neon, neonLight, neonMat, emerg, emergBulb, screenLight,
-    focus: {
-      terminal: { pos: new THREE.Vector3(0, 1.05, front + 0.92), look: new THREE.Vector3(0, 1.04, front + 0.4) },
-      notebook: { pos: new THREE.Vector3(1.05, 1.22, -0.05), look: new THREE.Vector3(1.33, 0.78, -0.05) },
-    },
   };
 }

@@ -3,6 +3,8 @@ import * as THREE from 'three';
 // ЭЛТ-терминал: текст рисуется на canvas, canvas — текстура экрана в 3D.
 const W = 1024, H = 768, PAD = 56;
 const FONT = 26, LINE = 32;
+const PIXEL = '"Press Start 2P", monospace';
+const MONO = `${FONT}px "Courier New", monospace`;
 const RED = '#ff3040', DIM = '#8a1a24', BG = '#0b0203';
 const TYPE_SPEED = 900; // символов в секунду
 
@@ -23,6 +25,9 @@ export class Terminal {
     this.menuScroll = 0;
     this.chapter = 0; this.pages = []; this.page = 0;
     this.time = 0; this.dirty = true;
+    this.active = false;        // печать идёт, только когда игрок смотрит в терминал
+    this.onKey = null; this.onPage = null;
+    this.keyAcc = 0;
     this.g.font = `${FONT}px "Courier New", monospace`;
     this.setLines([
       'К-47 // ТЕРМИНАЛ ЦИКЛА', '',
@@ -44,6 +49,7 @@ export class Terminal {
   get typing() { return this.shown < this.total; }
 
   wrap(text, maxW) {
+    this.g.font = MONO;
     const out = [];
     for (const para of text.split('\n')) {
       let line = '';
@@ -74,14 +80,14 @@ export class Terminal {
     this.showPage();
   }
 
-  showPage() { this.setLines(this.pages[this.page]); }
+  showPage() { this.setLines(this.pages[this.page]); this.onPage?.(); }
 
   // ---------- ввод ----------
   // u, v — координаты касания на экране (0..1, v снизу вверх)
   tap(u, v) {
     const x = u * W, y = (1 - v) * H;
     if (this.typing) { this.shown = this.total; this.dirty = true; return; }
-    if (this.state === 'boot') return this.openMenu();
+    if (this.state === 'boot') { this.onPage?.(); return this.openMenu(); }
     if (this.state === 'menu') {
       const top = PAD + LINE * 2;
       const row = Math.floor((y - top) / LINE) - 1;
@@ -114,8 +120,11 @@ export class Terminal {
   // ---------- отрисовка ----------
   update(dt) {
     this.time += dt;
-    if (this.typing) {
-      this.shown = Math.min(this.total, this.shown + TYPE_SPEED * dt);
+    if (this.typing && this.active) {
+      const step = TYPE_SPEED * dt;
+      this.shown = Math.min(this.total, this.shown + step);
+      this.keyAcc += step;
+      if (this.keyAcc > 14) { this.keyAcc = 0; this.onKey?.(); }
       this.dirty = true;
     }
     // мигающий курсор
@@ -127,8 +136,9 @@ export class Terminal {
     this.texture.needsUpdate = true;
   }
 
-  text(str, x, y, color = RED, glow = 10) {
+  text(str, x, y, color = RED, glow = 10, font = MONO) {
     const g = this.g;
+    g.font = font;
     g.fillStyle = color; g.shadowColor = color; g.shadowBlur = glow;
     g.fillText(str, x, y);
     g.shadowBlur = 0;
@@ -149,14 +159,17 @@ export class Terminal {
         if (left <= 0) return;
         const s = l.slice(0, left); left -= l.length;
         this.text(s, PAD, top + i * LINE);
+        g.font = MONO;
         last = { x: PAD + g.measureText(s).width, y: top + i * LINE };
       });
       if (this.blink || this.typing) this.text('█', last.x + 4, last.y);
       if (this.state === 'read' && !this.typing) {
         const y = H - PAD - LINE + 8;
-        this.text('◀ НАЗАД', PAD, y, DIM, 0);
-        const next = this.page < this.pages.length - 1 ? 'ДАЛЕЕ ▶' : 'СЛЕД. ГЛАВА ▶';
-        this.text(next, W - PAD - g.measureText(next).width, y, DIM, 0);
+        const f = `16px ${PIXEL}`;
+        this.text('< НАЗАД', PAD, y + 6, DIM, 0, f);
+        const next = this.page < this.pages.length - 1 ? 'ДАЛЕЕ >' : 'СЛЕД. ГЛАВА >';
+        g.font = f;
+        this.text(next, W - PAD - g.measureText(next).width, y + 6, DIM, 0, f);
       }
     }
     this.drawCRT();
@@ -164,8 +177,10 @@ export class Terminal {
 
   drawHeader(title, right) {
     const g = this.g;
-    this.text(`[МЕНЮ] ${title}`, PAD, PAD, DIM, 0);
-    this.text(right, W - PAD - g.measureText(right).width, PAD, DIM, 0);
+    const f = `16px ${PIXEL}`;
+    this.text(`[МЕНЮ] ${title}`.toUpperCase(), PAD, PAD + 6, DIM, 0, f);
+    g.font = f;
+    this.text(right, W - PAD - g.measureText(right).width, PAD + 6, DIM, 0, f);
     g.fillStyle = DIM; g.fillRect(PAD, PAD + LINE + 4, W - PAD * 2, 2);
   }
 
@@ -177,11 +192,11 @@ export class Terminal {
       const i = this.menuScroll + r;
       if (i >= this.book.length) break;
       const num = i === 0 ? '000' : String(i).padStart(3, '0');
-      this.text(`${num}  ${this.book[i].title}`, PAD, top + (r + 1) * LINE);
+      this.text(`${num}  ${this.book[i].title.toUpperCase()}`, PAD, top + (r + 1) * LINE + 6, RED, 8, `18px ${PIXEL}`);
     }
     const more = this.menuScroll + rows < this.book.length;
     this.text(more ? '  ▼ ▼ ▼' : '', PAD, top + (rows + 1) * LINE, DIM, 0);
-    this.text('> ВЫБЕРИТЕ ЗАПИСЬ' + (this.blink ? '_' : ''), PAD, H - PAD - LINE + 8, DIM, 0);
+    this.text('> ВЫБЕРИТЕ ЗАПИСЬ' + (this.blink ? '_' : ''), PAD, H - PAD - LINE + 8, DIM, 0, `16px ${PIXEL}`);
   }
 
   // полосы развёртки и виньетка кинескопа
