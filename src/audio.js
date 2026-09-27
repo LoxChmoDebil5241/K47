@@ -61,6 +61,13 @@ export const sfx = {
   page() { noise(0.08, 0.1, 0, 2500, 'bandpass'); tone('square', 520, 0.03, 0.05); },
   flicker() { noise(0.12, 0.12, 0, 5000, 'highpass'); tone('square', 60, 0.1, 0.06); },
   thud() { tone('triangle', [70, 35], 0.5, 0.35); noise(0.25, 0.12, 0, 250); },
+  // шлюз: сигнал, шипение пневматики, удар створок
+  airlock(open) {
+    tone('square', 988, 0.08, 0.1); tone('square', 988, 0.08, 0.1, 0.14);
+    noise(0.7, 0.18, 0.3, 1800, 'bandpass');
+    tone('square', open ? [140, 70] : [70, 140], 0.6, 0.08, 0.3);
+    tone('triangle', [90, 40], 0.25, 0.35, open ? 0.95 : 0.95); noise(0.12, 0.2, 0.95, 300);
+  },
   paper() { noise(0.18, 0.12, 0, 3500, 'bandpass'); noise(0.12, 0.08, 0.12, 2500, 'bandpass'); },
 };
 

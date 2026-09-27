@@ -155,3 +155,106 @@ export function photo(seed) {
     g.fillText(`К-${String(40 + Math.floor(r() * 8))}`, 20, s - 14);
   });
 }
+
+// Крашеный металл: царапины, потёртости, ржавые подтёки.
+export function metal(seed = 3, base = '#5a5e62') {
+  return canvasTexture(256, (g, s) => {
+    const r = rand(seed);
+    g.fillStyle = base; g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 260; i++) {
+      g.strokeStyle = `rgba(${r() < 0.5 ? '255,255,255' : '0,0,0'},${r() * 0.12})`;
+      g.lineWidth = r() * 1.5;
+      const x = r() * s, y = r() * s, l = 5 + r() * 40;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + l, y + (r() - 0.5) * 6); g.stroke();
+    }
+    for (let i = 0; i < 8; i++) {
+      const x = r() * s, len = 20 + r() * 90;
+      const gr = g.createLinearGradient(0, 0, 0, len);
+      gr.addColorStop(0, 'rgba(90,40,15,.35)'); gr.addColorStop(1, 'rgba(90,40,15,0)');
+      g.fillStyle = gr; g.fillRect(x, r() * s * 0.5, 2 + r() * 4, len);
+    }
+  });
+}
+
+// Жёлто-чёрная предупреждающая полоса.
+export function hazard() {
+  const t = canvasTexture(128, (g, s) => {
+    g.fillStyle = '#c9a21a'; g.fillRect(0, 0, s, s);
+    g.fillStyle = '#141414';
+    for (let i = -2; i < 4; i++) {
+      g.beginPath();
+      g.moveTo(i * 48, 0); g.lineTo(i * 48 + 24, 0); g.lineTo(i * 48 + 24 + s, s); g.lineTo(i * 48 + s, s); g.fill();
+    }
+    const r = rand(9);
+    for (let i = 0; i < 300; i++) { g.fillStyle = `rgba(0,0,0,${r() * 0.25})`; g.fillRect(r() * s, r() * s, 2, 2); }
+  });
+  return t;
+}
+
+// Створка шлюза в духе SS14: панели, заклёпки, окно, полоса.
+export function airlockPanel(side) {
+  return canvasTexture(512, (g, s) => {
+    const r = rand(side === 'L' ? 21 : 22);
+    g.fillStyle = '#6b7075'; g.fillRect(0, 0, s, s);
+    // тёмные швы панелей
+    g.fillStyle = '#3a3d40';
+    [0.12, 0.5, 0.88].forEach((y) => g.fillRect(0, y * s, s, 5));
+    g.fillRect(side === 'L' ? s - 8 : 0, 0, 8, s);
+    // окно-щель
+    const wx = side === 'L' ? s * 0.55 : s * 0.25;
+    g.fillStyle = '#1b2228'; g.fillRect(wx, s * 0.18, s * 0.2, s * 0.26);
+    const gl = g.createLinearGradient(wx, s * 0.18, wx + s * 0.2, s * 0.44);
+    gl.addColorStop(0, 'rgba(120,170,200,.35)'); gl.addColorStop(1, 'rgba(20,30,40,.1)');
+    g.fillStyle = gl; g.fillRect(wx + 4, s * 0.18 + 4, s * 0.2 - 8, s * 0.26 - 8);
+    g.strokeStyle = '#2a2d30'; g.lineWidth = 6; g.strokeRect(wx, s * 0.18, s * 0.2, s * 0.26);
+    // предупреждающая полоса
+    g.save(); g.beginPath(); g.rect(0, s * 0.6, s, s * 0.08); g.clip();
+    g.fillStyle = '#c9a21a'; g.fillRect(0, s * 0.6, s, s * 0.08);
+    g.fillStyle = '#141414';
+    for (let x = -60; x < s + 60; x += 40) { g.beginPath(); g.moveTo(x, s * 0.6); g.lineTo(x + 20, s * 0.6); g.lineTo(x + 60, s * 0.68); g.lineTo(x + 40, s * 0.68); g.fill(); }
+    g.restore();
+    // заклёпки
+    g.fillStyle = '#8e949a';
+    for (const y of [0.08, 0.16, 0.54, 0.84, 0.94]) for (let x = 24; x < s; x += 58) { g.beginPath(); g.arc(x, y * s, 4, 0, 7); g.fill(); }
+    // трафарет
+    g.fillStyle = 'rgba(20,20,20,.7)'; g.font = 'bold 34px "Courier New", monospace';
+    g.fillText(side === 'L' ? 'ШЛ' : 'ЮЗ', side === 'L' ? s * 0.62 : s * 0.1, s * 0.8);
+    // грязь снизу и царапины
+    const gr = g.createLinearGradient(0, s * 0.75, 0, s);
+    gr.addColorStop(0, 'rgba(30,25,20,0)'); gr.addColorStop(1, 'rgba(30,25,20,.6)');
+    g.fillStyle = gr; g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 120; i++) {
+      g.strokeStyle = `rgba(255,255,255,${r() * 0.1})`; g.lineWidth = 1;
+      const x = r() * s, y = r() * s; g.beginPath(); g.moveTo(x, y); g.lineTo(x + r() * 30, y + (r() - 0.5) * 4); g.stroke();
+    }
+  });
+}
+
+// Пустая плашка под фото, пока нет файла.
+export function photoSlot() {
+  return canvasTexture(256, (g, s) => {
+    g.fillStyle = '#1a1716'; g.fillRect(0, 0, s, s);
+    g.strokeStyle = '#5a2a2a'; g.setLineDash([8, 6]); g.lineWidth = 3; g.strokeRect(20, 20, s - 40, s - 40);
+    g.fillStyle = '#8a3a3a'; g.font = 'bold 22px "Courier New", monospace'; g.textAlign = 'center';
+    g.fillText('МЕСТО', s / 2, s / 2 - 8); g.fillText('ДЛЯ ФОТО', s / 2, s / 2 + 20);
+  });
+}
+
+// Жёлтый стикер с запиской.
+export function stickyNote(lines) {
+  return canvasTexture(128, (g, s) => {
+    g.fillStyle = '#c9b64a'; g.fillRect(0, 0, s, s);
+    g.fillStyle = '#2a2440'; g.font = 'italic 15px "Courier New", monospace';
+    lines.forEach((l, i) => g.fillText(l, 10, 30 + i * 20));
+  });
+}
+
+// Мягкая тень-градиент для углов (альфа сверху/слева).
+export function shadowGradient(horizontal = true) {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const gr = horizontal ? g.createLinearGradient(0, 0, 64, 0) : g.createLinearGradient(0, 64, 0, 0);
+  gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}

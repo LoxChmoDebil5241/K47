@@ -6,7 +6,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { buildRoom } from './room.js';
 import { Terminal } from './terminal.js';
-import { VIEWS, BARS, HINTS, KEYS, FREE_LOOK } from './views.js';
+import { VIEWS, BARS, HINTS, KEYS, FREE_LOOK, TAPS } from './views.js';
 import { sfx, unlockAudio } from './audio.js';
 import book from './story/book.json';
 
@@ -15,13 +15,15 @@ const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMappingExposure = 1.15;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
-scene.fog = new THREE.FogExp2(0x020203, 0.1);
+scene.fog = new THREE.FogExp2(0x020203, 0.07);
 
-const camera = new THREE.PerspectiveCamera(70, 1, 0.02, 40);
+const camera = new THREE.PerspectiveCamera(70, 1, 0.02, 60);
 const terminal = new Terminal(book);
 const room = buildRoom(scene, terminal.texture);
 
@@ -74,7 +76,15 @@ basePos.copy(move.toPos.copy(posePos(VIEWS.outside)));
 const bar = document.getElementById('bar');
 const hint = document.getElementById('hint');
 
+// действия, которые не меняют вид
+const ACTIONS = {
+  door() {
+    if (room.airlock.toggle()) { sfx.airlock(room.airlock.state.open); setTimeout(renderBar, 50); }
+  },
+};
+
 function go(name, sound) {
+  if (name?.[0] === '@') return ACTIONS[name.slice(1)]?.();
   if (!VIEWS[name] || name === view) return;
   sfx[sound]?.();
   const from = view;
@@ -114,7 +124,7 @@ function renderBar() {
     for (const [label, to, sound, main] of row) {
       const b = document.createElement('button');
       b.className = 'px' + (main ? ' main' : '');
-      b.textContent = label;
+      b.textContent = typeof label === 'function' ? label({ door: room.airlock.state }) : label;
       b.addEventListener('click', (e) => { e.stopPropagation(); unlockAudio(); sfx.click(); go(to, sound); });
       r.appendChild(b);
     }
@@ -128,20 +138,24 @@ addEventListener('keydown', (e) => {
   unlockAudio();
   const to = KEYS[view]?.[e.key];
   if (!to) return;
-  const btn = [...bar.querySelectorAll('button')].find((b) => BARS[view].flat().find((x) => x[0] === b.textContent)?.[1] === to);
-  const def = BARS[view].flat().find((x) => x[1] === to);
+  const defs = BARS[view].flat();
+  const i = defs.findIndex((x) => x[1] === to);
+  const btn = bar.querySelectorAll('button')[i];
   btn?.classList.add('pressed'); setTimeout(() => btn?.classList.remove('pressed'), 120);
-  sfx.click(); go(to, def?.[2]);
+  sfx.click(); go(to, defs[i]?.[2]);
 });
 
 // ---------- касания: осмотр пальцем и нажатия по объектам ----------
-const look = { x: 0, y: 0 };          // смещение взгляда от базового вида (рад)
+const look = { x: 0, y: 0 };          // смещение взгляда от базового вида (рад), сбрасывается при смене вида
 const ray = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
 function pick(x, y) {
   ndc.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1);
   ray.setFromCamera(ndc, camera);
-  return ray.intersectObjects([room.screen, room.notebook], false)[0];
+  const hit = ray.intersectObjects(Object.values(room.hits), false)[0];
+  if (!hit) return null;
+  hit.name = Object.keys(room.hits).find((k) => room.hits[k] === hit.object);
+  return hit;
 }
 
 let drag = null;
@@ -164,8 +178,8 @@ canvas.addEventListener('pointermove', (e) => {
   const f = FREE_LOOK[view];
   if (!f) return;
   const k = 2 / Math.min(innerWidth, innerHeight);
-  look.x = Math.max(-0.5 * f, Math.min(0.5 * f, look.x + dx * k));
-  look.y = Math.max(-0.35 * f, Math.min(0.35 * f, look.y + dy * k));
+  look.x = Math.max(-0.7 * f, Math.min(0.7 * f, look.x + dx * k));
+  look.y = Math.max(-0.45 * f, Math.min(0.45 * f, look.y + dy * k));
 });
 canvas.addEventListener('pointerup', (e) => {
   if (!drag) return;
@@ -173,9 +187,11 @@ canvas.addEventListener('pointerup', (e) => {
   drag = null;
   if (!tap) return;
   const hit = pick(e.clientX, e.clientY);
-  if (view === 'terminal' && hit?.object === room.screen) terminal.tap(hit.uv.x, hit.uv.y);
-  else if (view === 'outside' && hit?.object === room.screen) go('terminal', 'enter');
-  else if ((view === 'deskClose' || view === 'desk') && hit?.object === room.notebook) go(view === 'desk' ? 'deskClose' : 'notebook', view === 'desk' ? 'approach' : 'paper');
+  const to = hit && TAPS[view]?.[hit.name];
+  if (!to) return;
+  if (to === '@terminal') return terminal.tap(hit.uv.x, hit.uv.y);
+  const sound = to === 'terminal' ? 'enter' : to === 'deskClose' ? 'approach' : to === 'headset' ? 'click' : 'paper';
+  go(to, sound);
 });
 canvas.addEventListener('wheel', (e) => { if (view === 'terminal') terminal.scroll(Math.sign(e.deltaY)); }, { passive: true });
 
@@ -205,6 +221,7 @@ function atmosphere(t, dt) {
 
 // ---------- цикл ----------
 const clock = new THREE.Clock();
+let wasBusy = false;
 const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 const lookQ = new THREE.Quaternion();
 const breath = new THREE.Vector3();
@@ -212,6 +229,10 @@ function frame() {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
   terminal.update(dt);
   atmosphere(t, dt);
+  room.airlock.update(dt, t);
+  if (room.airlock.state.busy !== wasBusy) { wasBusy = room.airlock.state.busy; if (!wasBusy) renderBar(); }
+  room.radioLed.visible = Math.floor(t * 1.5) % 3 === 0;
+  room.micLed.visible = Math.floor(t * 0.8) % 2 === 0;
 
   if (move.t < 1) {
     move.t = Math.min(1, move.t + dt / move.dur);
@@ -222,8 +243,6 @@ function frame() {
     if (move.euler) baseQ.setFromEuler(lookE.set(move.p0 + move.dp * k, move.y0 + move.dy * k, 0));
     else baseQ.slerpQuaternions(move.fromQ, move.toQ, k);
   }
-  // палец отпущен — взгляд пружинит обратно
-  if (!drag) { look.x *= 1 - Math.min(1, dt * 4); look.y *= 1 - Math.min(1, dt * 4); }
   lookE.set(-look.y, -look.x, 0); lookQ.setFromEuler(lookE);
   const still = view === 'terminal' || view === 'notebook';
   breath.set(0, still ? 0 : Math.sin(t * 1.3) * 0.006, 0);
