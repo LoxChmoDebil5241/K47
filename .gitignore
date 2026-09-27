@@ -19,3 +19,8 @@
 .vs/
 .idea/
 .DS_Store
+
+# Web / Android
+node_modules/
+dist/
+android/

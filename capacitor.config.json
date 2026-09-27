@@ -1,0 +1,6 @@
+{
+  "appId": "com.k47.novel",
+  "appName": "K47",
+  "webDir": "dist",
+  "android": { "backgroundColor": "#000000" }
+}

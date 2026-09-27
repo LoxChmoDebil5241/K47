@@ -1,0 +1,129 @@
+import * as THREE from 'three';
+
+// Процедурные текстуры: пока нет своих ассетов, всё рисуем на canvas.
+
+function rand(seed) {
+  let s = seed >>> 0;
+  return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+}
+
+function canvasTexture(size, draw, repeat = 1) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  draw(c.getContext('2d'), size);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(repeat, repeat);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
+// Грязный бетон: шум, пятна, потёки, трещины.
+export function concrete(seed = 1, repeat = 1, frost = 0) {
+  return canvasTexture(512, (g, s) => {
+    const r = rand(seed);
+    g.fillStyle = '#4a4a48';
+    g.fillRect(0, 0, s, s);
+    const img = g.getImageData(0, 0, s, s);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const n = (r() - 0.5) * 38;
+      img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n;
+    }
+    g.putImageData(img, 0, 0);
+    // грязные пятна
+    for (let i = 0; i < 40; i++) {
+      const x = r() * s, y = r() * s, rad = 10 + r() * 70;
+      const gr = g.createRadialGradient(x, y, 0, x, y, rad);
+      gr.addColorStop(0, `rgba(15,12,10,${0.1 + r() * 0.25})`);
+      gr.addColorStop(1, 'rgba(15,12,10,0)');
+      g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+    }
+    // потёки сверху вниз
+    for (let i = 0; i < 25; i++) {
+      const x = r() * s, len = 40 + r() * 300;
+      g.strokeStyle = `rgba(20,16,12,${0.1 + r() * 0.2})`;
+      g.lineWidth = 1 + r() * 4;
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x + (r() - 0.5) * 10, len); g.stroke();
+    }
+    // трещины
+    g.strokeStyle = 'rgba(10,10,10,.6)'; g.lineWidth = 1;
+    for (let i = 0; i < 6; i++) {
+      let x = r() * s, y = r() * s;
+      g.beginPath(); g.moveTo(x, y);
+      for (let k = 0; k < 12; k++) { x += (r() - 0.5) * 30; y += r() * 20; g.lineTo(x, y); }
+      g.stroke();
+    }
+    // иней
+    for (let i = 0; i < frost * 4000; i++) {
+      const x = r() * s, y = r() * s;
+      g.fillStyle = `rgba(200,225,255,${r() * 0.35})`;
+      g.fillRect(x, y, 1 + r() * 2, 1 + r() * 2);
+    }
+  }, repeat);
+}
+
+// Лёд: полупрозрачная голубая корка с разводами.
+export function ice(seed = 7) {
+  return canvasTexture(256, (g, s) => {
+    const r = rand(seed);
+    g.fillStyle = '#9fc4dc'; g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 300; i++) {
+      g.strokeStyle = `rgba(255,255,255,${r() * 0.4})`;
+      g.lineWidth = r() * 2;
+      const x = r() * s, y = r() * s;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + (r() - 0.5) * 60, y + (r() - 0.5) * 60); g.stroke();
+    }
+  });
+}
+
+// Страница блокнота.
+export function notebookPage(lines) {
+  return canvasTexture(512, (g, s) => {
+    g.fillStyle = '#cfc7b0'; g.fillRect(0, 0, s, s);
+    g.strokeStyle = 'rgba(60,80,140,.35)';
+    for (let y = 60; y < s; y += 32) { g.beginPath(); g.moveTo(0, y); g.lineTo(s, y); g.stroke(); }
+    g.strokeStyle = 'rgba(170,40,40,.5)';
+    g.beginPath(); g.moveTo(50, 0); g.lineTo(50, s); g.stroke();
+    g.fillStyle = '#1b1b2a';
+    g.font = 'italic 24px "Courier New", monospace';
+    lines.forEach((l, i) => g.fillText(l, 60, 54 + i * 32));
+    // грязь и влага
+    const r = rand(3);
+    for (let i = 0; i < 12; i++) {
+      g.fillStyle = `rgba(60,40,20,${r() * 0.15})`;
+      g.beginPath(); g.arc(r() * s, r() * s, 10 + r() * 40, 0, 7); g.fill();
+    }
+  });
+}
+
+// Обледенелый бетон: наплывы льда стекают сверху, иней по всей стене.
+export function frozenWall(seed = 42, repeat = 1) {
+  const base = concrete(seed, 1, 1).image;
+  return canvasTexture(512, (g, s) => {
+    const r = rand(seed + 1);
+    g.drawImage(base, 0, 0, s, s);
+    // наплывы льда
+    for (let i = 0; i < 38; i++) {
+      const x = r() * s, w = 8 + r() * 45, len = 60 + r() * 380;
+      const gr = g.createLinearGradient(0, 0, 0, len);
+      gr.addColorStop(0, `rgba(190,225,255,${0.35 + r() * 0.3})`);
+      gr.addColorStop(1, 'rgba(190,225,255,0)');
+      g.fillStyle = gr;
+      g.beginPath(); g.moveTo(x - w / 2, 0);
+      g.quadraticCurveTo(x - w / 3 + (r() - 0.5) * 20, len * 0.6, x + (r() - 0.5) * 8, len);
+      g.quadraticCurveTo(x + w / 3 + (r() - 0.5) * 20, len * 0.6, x + w / 2, 0);
+      g.fill();
+    }
+    // ледяная корка снизу
+    const bottom = g.createLinearGradient(0, s * 0.75, 0, s);
+    bottom.addColorStop(0, 'rgba(170,210,240,0)'); bottom.addColorStop(1, 'rgba(170,210,240,.45)');
+    g.fillStyle = bottom; g.fillRect(0, 0, s, s);
+    // кристаллы инея
+    g.strokeStyle = 'rgba(235,245,255,.35)'; g.lineWidth = 1;
+    for (let i = 0; i < 900; i++) {
+      const x = r() * s, y = r() * s, l = 2 + r() * 6, a = r() * Math.PI;
+      g.beginPath(); g.moveTo(x - Math.cos(a) * l, y - Math.sin(a) * l); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
+    }
+  }, repeat);
+}

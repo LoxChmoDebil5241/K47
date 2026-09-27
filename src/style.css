@@ -1,0 +1,49 @@
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  background: #000; color: #ddd;
+  font-family: "Courier New", monospace;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#game { display: block; width: 100vw; height: 100vh; }
+
+/* Зерно плёнки и виньетка поверх 3D */
+#grain {
+  position: fixed; inset: -50%; pointer-events: none; opacity: .09;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain .5s steps(4) infinite;
+}
+@keyframes grain {
+  0% { transform: translate(0, 0); } 25% { transform: translate(-3%, 2%); }
+  50% { transform: translate(2%, -3%); } 75% { transform: translate(-2%, -1%); }
+}
+#vignette {
+  position: fixed; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.85) 100%);
+}
+
+#hint {
+  position: fixed; left: 0; right: 0; bottom: max(16px, env(safe-area-inset-bottom));
+  text-align: center; font-size: 13px; color: #b33; opacity: .8;
+  pointer-events: none; transition: opacity 1.5s;
+  text-shadow: 0 0 6px #f00;
+}
+#hint.gone { opacity: 0; }
+
+#choices {
+  position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom));
+  transform: translateX(-50%); width: min(92vw, 520px);
+  display: flex; flex-direction: column; gap: 8px;
+}
+#choices button {
+  font: inherit; font-size: 15px; text-align: left;
+  padding: 10px 14px; color: #ff4a4a; background: rgba(20, 0, 0, .75);
+  border: 1px solid #a11; box-shadow: 0 0 10px rgba(255, 0, 0, .25);
+}
+#choices button:active { background: #400; }
+
+#back {
+  position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));
+  width: 44px; height: 44px; font-size: 20px;
+  color: #ff4a4a; background: rgba(0, 0, 0, .6); border: 1px solid #a11;
+}
