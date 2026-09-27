@@ -21,10 +21,11 @@ export const VIEWS = {
   note:      { anchor: 'note', offset: [0, 0.2, 0], up: FAR_EDGE, fit: [0.1, 0.1] },
   photo:     { anchor: 'photo', offset: [0, 0, 0.35], local: true, fit: [0.36, 0.44] },
   radio:     { anchor: 'radio', offset: [0, 0.03, 0.3], lookOffset: [0, 0.03, 0], local: true, fit: [0.12, 0.28] },
+  drawer:    { anchor: 'drawer', offset: [0, 0.55, 0], up: FAR_EDGE, fit: [0.66, 0.5] },
   headset:   { anchor: 'headset', offset: [0, 0.35, 0], up: FAR_EDGE, fit: [0.34, 0.3] },
   jar:       { pos: v(2.45, 1.38, -1.8), look: v(3.3, 1.22, -1.8), hold: 0.3 },
   turn:      { pos: SEAT, look: v(0, 1.35, z1) },
-  door:      { pos: v(0, 1.5, z1 - 3.0), look: v(0, 1.42, z1), fit: [2.3, 3.0] },
+  door:      { pos: v(0, 1.5, z1 - 3.0), look: v(0, 1.5, z1), fit: [2.8, 3.3] },
 };
 
 // Кнопки: ряды снизу вверх не важны — ряды идут сверху вниз, каждый растянут на всю ширину.
@@ -44,6 +45,7 @@ export const BARS = {
   note: [[['НАЗАД', 'deskClose', 'back']]],
   photo: [[['НАЗАД', 'deskClose', 'back']]],
   headset: [[['НАЗАД', 'deskClose', 'back']]],
+  drawer: [[['ЗАДВИНУТЬ', 'deskClose', 'back']]],
   radio: [[['НАЗАД', 'deskClose', 'back']]],
   jar: [[
     ['ПОЛОЖИТЬ', 'deskClose', 'back'],
@@ -63,6 +65,7 @@ export const HINTS = {
   note: 'ЧЕЙ-ТО ПОЧЕРК. ПОХОЖ НА МОЙ',
   photo: 'ФОТО ЕЩЁ НЕ ПРОЯВИЛОСЬ',
   headset: 'ТИШИНА. ТОЛЬКО ШИПЕНИЕ',
+  drawer: 'ЧУЖИЕ ВЕЩИ. НЕ МОИ?',
   radio: 'НАЖМИ НА РАЦИЮ — ТАНГЕНТА',
   jar: (s) => `ВЕДИ — ПОКРУТИТЬ · ГРАНУЛ: ${RPK_TOTAL - s.jar.eaten} / ${RPK_TOTAL}`,
   turn: 'ШЛЮЗ. НАЖМИ НА НЕГО',
@@ -80,6 +83,7 @@ export const KEYS = {
   note: { ArrowDown: 'deskClose', Escape: 'deskClose' },
   photo: { ArrowDown: 'deskClose', Escape: 'deskClose' },
   headset: { ArrowDown: 'deskClose', Escape: 'deskClose' },
+  drawer: { ArrowDown: 'deskClose', Escape: 'deskClose' },
   radio: { ArrowDown: 'deskClose', Escape: 'deskClose', ' ': '@ptt' },
   jar: { ArrowDown: 'deskClose', Escape: 'deskClose', o: '@lid', e: '@eat' },
   turn: { ArrowUp: 'door', ArrowDown: 'outside', Escape: 'outside' },
@@ -90,7 +94,7 @@ export const KEYS = {
 export const FREE_LOOK = { outside: 1, wall: 1, desk: 1, turn: 1, door: 0.6, wallClose: 0.6, deskClose: 0.6 };
 
 // Что можно нажать в каждом виде: имя объекта → вид или @действие
-const DESK_ITEMS = { notebook: 'notebook', note: 'note', photo: 'photo', headset: 'headset', radio: 'radio', jar: 'jar' };
+const DESK_ITEMS = { notebook: 'notebook', note: 'note', photo: 'photo', headset: 'headset', radio: 'radio', jar: 'jar', drawer: 'drawer' };
 export const TAPS = {
   outside: { screen: 'terminal' },
   terminal: { screen: '@terminal' },
@@ -103,4 +107,4 @@ export const TAPS = {
 };
 
 // Звук перехода по нажатию на предмет
-export const TAP_SOUND = { terminal: 'enter', notebook: 'paper', note: 'paper', photo: 'paper', headset: 'click', radio: 'click', jar: 'jar' };
+export const TAP_SOUND = { terminal: 'enter', notebook: 'paper', note: 'paper', photo: 'paper', headset: 'click', radio: 'click', jar: 'jar', drawer: 'drawer' };

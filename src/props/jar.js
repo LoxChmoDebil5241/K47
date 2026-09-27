@@ -5,6 +5,7 @@ import { plastic } from '../textures.js';
 // Банка гранул РПК-3: белый пластик, этикетка с текстом из главы «Быт.»,
 // рифлёная крышка, внутри 30 гранул. Банку можно поднять, покрутить, открыть и съесть гранулу.
 export const RPK_TOTAL = 30;
+export const LID_TIME = 1.4; // секунд на откручивание/закручивание
 const R = 0.042, H = 0.105, LID = 0.022;
 
 function labelTexture() {
@@ -44,7 +45,7 @@ function labelTexture() {
 export function buildJar(eatenInit = 0) {
   const root = new THREE.Group();        // стоит на столе
   const body = new THREE.Group(); root.add(body); // её поднимаем и крутим
-  const white = std({ map: plastic(41, '#e9e7e1'), roughness: 0.45 });
+  const white = std({ map: plastic(41, '#e9e7e1'), roughness: 0.85 });
 
   const shell = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 0.97, H, 40, 1, true), white);
   shell.position.y = H / 2; body.add(shell);
@@ -66,7 +67,7 @@ export function buildJar(eatenInit = 0) {
 
   // крышка с рифлением
   const lid = new THREE.Group(); lid.position.y = H; body.add(lid);
-  const lidMat = std({ map: plastic(42, '#d9d6cf'), roughness: 0.5 });
+  const lidMat = std({ map: plastic(42, '#d9d6cf'), roughness: 0.85 });
   const lidGeo = new THREE.CylinderGeometry(R + 0.003, R + 0.003, LID, 60, 1);
   const lp = lidGeo.attributes.position;
   for (let i = 0; i < lp.count; i++) {
@@ -158,7 +159,7 @@ export function buildJar(eatenInit = 0) {
       }
       rattle *= Math.max(0, 1 - dt * 6);
       st.held = THREE.MathUtils.clamp(st.held + (st.wantHeld ? dt : -dt) * 1.4, 0, 1);
-      st.open = THREE.MathUtils.clamp(st.open + (st.wantOpen ? dt : -dt) * 2, 0, 1);
+      st.open = THREE.MathUtils.clamp(st.open + (st.wantOpen ? dt : -dt) / LID_TIME, 0, 1);
       const k = ease(st.held);
       root.getWorldPosition(homePos);
       // в поднятом состоянии банка висит перед камерой — переводим мировую точку в локальные координаты стола
@@ -167,9 +168,10 @@ export function buildJar(eatenInit = 0) {
       body.position.y += Math.sin(k * Math.PI) * 0.05;
       body.rotation.set(st.tilt * k, st.spin * k, 0);
       // крышка поднимается и откидывается в сторону
-      const o = ease(st.open);
-      lid.position.set(o * 0.06, H + o * 0.035, 0);
-      lid.rotation.set(0, o * 1.5, o * 0.9);
+      // крышка: сначала 2,5 оборота по резьбе (поднимается на шаг резьбы), потом снимается и отводится в сторону
+      const screw = Math.min(1, st.open / 0.7), off = ease(Math.max(0, (st.open - 0.7) / 0.3));
+      lid.position.set(off * 0.07, H + screw * 0.008 + off * 0.03, 0);
+      lid.rotation.set(0, screw * Math.PI * 5, off * 0.9);
     },
   };
 }

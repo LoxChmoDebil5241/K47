@@ -213,5 +213,44 @@ html, body {
 #nbText::placeholder { color: rgba(42, 36, 64, .35); }
 .nb-nav { width: min(480px, 100%); display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 6px; }
 .nb-nav .px { width: calc(100% - var(--px) * 2); }
-.nb.flip .nb-page { animation: flip .35s ease-in-out; }
-@keyframes flip { 50% { transform: perspective(900px) rotateY(-12deg); filter: brightness(.8); } }
+
+/* ---------- надписи: реплики и мысли ---------- */
+#say { position: fixed; inset: 0; z-index: 500; pointer-events: none; }
+.say-line {
+  position: absolute; left: 6%; right: 6%; top: 18%; margin: 0; text-align: center;
+  font: clamp(10px, 3vw, 15px)/1.7 var(--f-pixel); letter-spacing: .06em;
+  color: #ffd0d6; text-shadow: 0 0 8px rgba(255, 30, 60, .8), 2px 2px 0 #000;
+  transition: opacity .6s;
+}
+.say-float {
+  position: absolute; margin: 0; max-width: 70%;
+  font-family: var(--f-pixel); line-height: 1.6; color: #ff3a52;
+  text-shadow: var(--chroma), 0 0 10px rgba(255, 0, 40, .7);
+  transform: rotate(var(--rot)); animation: shake .12s steps(2) infinite; transition: opacity .9s;
+}
+@keyframes shake { 50% { transform: rotate(var(--rot)) translate(1px, -1px); } }
+.say-line.out, .say-float.out { opacity: 0; }
+
+/* ---------- страх: краснота по краям, пульс ---------- */
+#dread {
+  position: fixed; inset: 0; z-index: 450; pointer-events: none; opacity: 0;
+  background: radial-gradient(ellipse at center, rgba(120, 0, 10, calc(.15 + var(--pulse, 0) * .1)) 20%, rgba(90, 0, 8, .92) 100%);
+  mix-blend-mode: multiply;
+}
+body.dying #dread { opacity: 1 !important; background: #3a0006; transition: background 2s; mix-blend-mode: normal; }
+body.dying #game { filter: blur(3px) saturate(.3); transition: filter 2s; }
+
+/* перелистывание: настоящий лист поворачивается вокруг корешка */
+.nb-book { position: relative; perspective: 1400px; }
+.nb-leaf {
+  position: absolute; top: 10px; bottom: 10px; left: 18px; right: 10px; z-index: 5;
+  transform-origin: left center; transform-style: preserve-3d; pointer-events: none;
+  transition: transform .62s cubic-bezier(.45, .05, .35, 1);
+}
+.nb-leaf > div { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow: hidden; }
+.nb-leaf .back { transform: rotateY(180deg); background: radial-gradient(ellipse at 50% 40%, #d6ccb2, #bfb393); box-shadow: inset -8px 0 18px rgba(0,0,0,.25); }
+.nb-leaf .front::after, .nb-leaf .back::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(0,0,0,var(--shade, 0)), transparent 70%);
+}
+.nb-leaf .txt { padding: 8px 14px 14px 48px; margin-top: 4px; font: 27px/34px var(--f-hand); color: #2a2440; white-space: pre-wrap; word-break: break-word; }

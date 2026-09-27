@@ -4,6 +4,7 @@ import { metal, photoSlot } from '../textures.js';
 import { buildRadio } from './radio.js';
 import { buildJar } from './jar.js';
 import { buildNotebook, HAND } from './notebook.js';
+import { buildDrawer } from './drawer.js';
 
 // Металлический офисный стол с тумбой (по референсу), кресло и всё, что на столе.
 // Стол развёрнут к комнате: его локальная +Z смотрит в мировую -X.
@@ -29,9 +30,9 @@ function stickyTexture(code) {
 export function buildDesk(scene, { code, eaten }) {
   const desk = new THREE.Group(); desk.position.set(3.85, 0, -1.4); desk.rotation.y = -Math.PI / 2; scene.add(desk);
   const hits = {}, anchors = {};
-  const steel = std({ map: metal(1, '#8a8e92'), roughness: 0.45, metalness: 0.6 });
-  const steelDark = std({ map: metal(2, '#55595d'), roughness: 0.55, metalness: 0.55 });
-  const chrome = std({ color: 0xcfcfd4, roughness: 0.2, metalness: 0.9 });
+  const steel = std({ map: metal(1, '#8a8e92'), roughness: 0.78, metalness: 0.25 });
+  const steelDark = std({ map: metal(2, '#55595d'), roughness: 0.8, metalness: 0.25 });
+  const chrome = std({ color: 0xa8a8ac, roughness: 0.45, metalness: 0.6 });
   const rubber = std({ color: 0x111113 });
 
   // ---------- стол ----------
@@ -43,10 +44,14 @@ export function buildDesk(scene, { code, eaten }) {
   box(2.3, 0.5, 0.02, steelDark, -0.25, 0.46, -0.55, desk);
   const ped = new THREE.Group(); ped.position.set(1.05, 0, 0.02); desk.add(ped);
   box(0.72, 0.72, 1.08, steelDark, 0, 0.36, 0, ped);
-  [0.58, 0.36, 0.14].forEach((y) => {
+  [0.36, 0.14].forEach((y) => {
     box(0.68, 0.2, 0.02, steel, 0, y, 0.55, ped);
     box(0.24, 0.022, 0.03, chrome, 0, y + 0.03, 0.575, ped);
   });
+  // верхний ящик выдвигается: лицевая панель + короб с мелочёвкой
+  const drawer = buildDrawer(steel, steelDark, chrome);
+  drawer.root.position.set(0, 0.58, 0.55); ped.add(drawer.root);
+  hits.drawer = drawer.hit; anchors.drawer = drawer.anchor;
   box(0.72, 0.03, 1.08, rubber, 0, 0.015, 0, ped);
 
   // ---------- блокнот (закрыт) ----------
@@ -85,13 +90,13 @@ export function buildDesk(scene, { code, eaten }) {
   noteGeo.computeVertexNormals();
   const noteMat = std({ map: stickyTexture(code), roughness: 0.85, side: THREE.DoubleSide });
   const note = new THREE.Mesh(noteGeo, noteMat);
-  note.rotation.set(-Math.PI / 2, 0, 0.25); note.position.set(-0.1, TOP + 0.0012, 0.34); desk.add(note);
+  note.rotation.set(-Math.PI / 2, 0, 0.25); note.position.set(-0.1, TOP + 0.0012, 0.26); desk.add(note);
   // стикер маленький — зона нажатия заметно больше самого листка
-  const noteHit = box(0.16, 0.03, 0.16, new THREE.MeshBasicMaterial({ visible: false }), -0.1, TOP + 0.01, 0.34, desk);
+  const noteHit = box(0.16, 0.03, 0.16, new THREE.MeshBasicMaterial({ visible: false }), -0.1, TOP + 0.01, 0.26, desk);
   hits.note = noteHit; anchors.note = note;
 
   // ---------- гарнитура: дуга, амбушюры, штанга микрофона, провод ----------
-  const hs = new THREE.Group(); hs.position.set(0.2, TOP + 0.012, 0.3); hs.rotation.set(-Math.PI / 2 + 0.12, 0, 0.5); desk.add(hs);
+  const hs = new THREE.Group(); hs.position.set(0.2, TOP + 0.012, 0.22); hs.rotation.set(-Math.PI / 2 + 0.12, 0, 0.5); desk.add(hs);
   const hsMat = std({ color: 0x1a1a1c, roughness: 0.45, metalness: 0.3 });
   const padMat = std({ color: 0x0c0c0d, roughness: 0.95 });
   hs.add(new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.009, 8, 32, Math.PI), hsMat));
@@ -152,11 +157,11 @@ export function buildDesk(scene, { code, eaten }) {
   box(0.5, 0.35, 0.03, std({ color: 0x2a3022, roughness: 1 }), 0, 0.9, -0.31, chair).rotation.x = -0.2;
 
   return {
-    desk, hits, anchors, notebook, radio, jar,
+    desk, hits, anchors, notebook, radio, jar, drawer,
     // рукописный шрифт грузится асинхронно — перерисовать надписи, когда он готов
     refreshFonts() { noteMat.map.dispose(); noteMat.map = stickyTexture(code); noteMat.needsUpdate = true; },
     update(dt, t) {
-      notebook.update(dt); radio.update(dt, t); jar.update(dt);
+      notebook.update(dt); radio.update(dt, t); jar.update(dt); drawer.update(dt);
       micLed.visible = Math.floor(t * 0.8) % 2 === 0;
     },
   };

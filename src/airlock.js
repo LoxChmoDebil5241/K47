@@ -7,6 +7,8 @@ import { std, box, planeUV, scaleUV, roundPoly, canvasTex } from './geom.js';
 // В каждой створке — большое скруглённое окно по форме створки.
 // При открытии створки уезжают в стену и обрезаются плоскостями по краям проёма — снаружи их не видно.
 
+export const OPEN_TIME = 4; // секунд на ход створок
+
 export function buildAirlock(scene, { z, w, h }) {
   const g = new THREE.Group(); g.position.z = z; scene.add(g);
 
@@ -16,7 +18,7 @@ export function buildAirlock(scene, { z, w, h }) {
   const hazMat = std({ map: hazard(), roughness: 0.8, metalness: 0.1 });
 
   // ---------- рама ----------
-  const T = 0.26, DEPTH = 0.5;
+  const T = 0.42, DEPTH = 0.9; // массивная рама
   box(w + T * 2, T, DEPTH, frameMat, 0, h + T / 2, 0, g, 2);
   for (const s of [-1, 1]) box(T, h, DEPTH, frameMat, s * (w / 2 + T / 2), h / 2, 0, g, 2);
   // наличник по периметру со стороны комнаты
@@ -90,9 +92,11 @@ export function buildAirlock(scene, { z, w, h }) {
   const edgeMat = std({ color: 0x1e2124, roughness: 0.7, metalness: 0.4, clippingPlanes: clip });
   glassMat.clippingPlanes = clip; sealMat.clippingPlanes = clip;
   // тени тоже обрезаются — иначе уехавшая в стену створка отбрасывает тень на стену
-  for (const m of [glassMat, sealMat, panelMat, edgeMat]) m.clipShadows = true;
+  const hazClip = std({ map: hazard(), roughness: 0.7, metalness: 0.2, clippingPlanes: clip, side: THREE.DoubleSide });
+  const ribMat = std({ map: metal(15, '#2c3034'), roughness: 0.6, metalness: 0.5, clippingPlanes: clip });
+  for (const m of [glassMat, sealMat, panelMat, edgeMat, hazClip, ribMat]) m.clipShadows = true;
 
-  const PD = 0.1; // толщина створки
+  const PD = 0.3; // толщина створки — тяжёлая бронедверь
   const panels = [-1, 1].map((side) => {
     const outline = side < 0
       ? [new THREE.Vector2(-w / 2 - OVER, 0), ...seam.map((p) => new THREE.Vector2(p.x - GAP, p.y)), new THREE.Vector2(-w / 2 - OVER, h)]
@@ -132,6 +136,20 @@ export function buildAirlock(scene, { z, w, h }) {
     // ребро жёсткости по низу створки
     const plateW = side < 0 ? seamX(0.05 * h) - (-w / 2) - 0.06 : w / 2 - seamX(0.05 * h) - 0.06;
     box(plateW, 0.05, 0.015, edgeMat, side < 0 ? -w / 2 + plateW / 2 + 0.03 : w / 2 - plateW / 2 - 0.03, 0.05 * h, -PD / 2 - 0.012, pg);
+
+    // жёлто-чёрная полоса вдоль шва и тёмные рёбра поперёк — как на референсе
+    const BAND = 0.11;
+    const edge = seam.map((p) => new THREE.Vector2(p.x + (side < 0 ? -GAP : GAP), p.y));
+    const inner = edge.map((p) => new THREE.Vector2(p.x + side * BAND, p.y));
+    const bandShape = new THREE.Shape([...edge, ...inner.reverse()]);
+    const bandGeo = scaleUV(new THREE.ShapeGeometry(bandShape), 6);
+    for (const zz of [-PD / 2 - 0.009, PD / 2 + 0.009]) {
+      const b = new THREE.Mesh(bandGeo, hazClip); b.position.z = zz; pg.add(b);
+    }
+    for (const y of [0.2, 0.9]) {
+      const ribW = side < 0 ? seamX(y * h) + w / 2 - BAND - 0.02 : w / 2 - seamX(y * h) - BAND - 0.02;
+      box(ribW + OVER, 0.09, 0.03, ribMat, side < 0 ? -w / 2 - OVER + (ribW + OVER) / 2 : w / 2 + OVER - (ribW + OVER) / 2, y * h, -PD / 2 - 0.015, pg);
+    }
     const xs = seam.map((p) => p.x);
     return { g: pg, side, travel: side < 0 ? Math.max(...xs) + w / 2 + 0.03 : w / 2 - Math.min(...xs) + 0.03 };
   });
@@ -144,14 +162,14 @@ export function buildAirlock(scene, { z, w, h }) {
     hit, state,
     toggle() {
       if (state.busy) return false;
-      state.open = !state.open; state.busy = true; state.wait = 0.4; // лампы мигают, затем створки едут
+      state.open = !state.open; state.busy = true; state.wait = 1.0; // лампы мигают, лязгают засовы, затем створки едут
       return true;
     },
     update(dt, time) {
       if (state.wait > 0) state.wait -= dt;
       else if (state.busy) {
         const target = state.open ? 1 : 0;
-        state.t += Math.sign(target - state.t) * Math.min(Math.abs(target - state.t), dt * 1.2);
+        state.t += Math.sign(target - state.t) * Math.min(Math.abs(target - state.t), dt / OPEN_TIME);
         if (state.t === target) state.busy = false;
       }
       const k = state.t < 0.5 ? 2 * state.t * state.t : 1 - Math.pow(-2 * state.t + 2, 2) / 2;

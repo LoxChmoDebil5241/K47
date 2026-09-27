@@ -5,6 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { buildRoom } from './room.js';
+import { OPEN_TIME } from './airlock.js';
 import { Terminal } from './terminal.js';
 import { VIEWS, BARS, HINTS, KEYS, FREE_LOOK, TAPS, TAP_SOUND } from './views.js';
 import { sfx, unlockAudio, startAmbience } from './audio.js';
@@ -12,7 +13,14 @@ import { save, stickyCode } from './state.js';
 import { runBoot } from './ui/boot.js';
 import { setupMenu } from './ui/menu.js';
 import { setupNotebookUI } from './ui/notebookUI.js';
-import { RPK_TOTAL } from './props/jar.js';
+import { RPK_TOTAL, LID_TIME } from './props/jar.js';
+import { say } from './ui/say.js';
+import { createDread } from './dread.js';
+
+// что думает персонаж, проглотив гранулу
+const TASTE = ['Горько. Вяжет. Солёно.', 'Отвратительно.', 'Воды к ним не дают.', 'Песок с жиром.', 'Скрипит на зубах.',
+  'Норма не ограничена.', 'Привкус пыли и химии.', 'Язык прилипает к нёбу.', 'Ещё одна. Зачем?', 'Горечь не уходит.'];
+let tasteI = Math.floor(Math.random() * 3);
 import book from './story/book.json';
 
 // ---------- рендер ----------
@@ -38,7 +46,7 @@ const { desk } = room;
 const inspectLight = new THREE.PointLight(0xe4e8f4, 0, 2, 2);
 scene.add(inspectLight);
 // сила подсветки подобрана под каждый предмет: светлая бумага — чуть-чуть, банка в тени — сильнее
-const INSPECT = { note: 0.015, photo: 0.06, radio: 0.08, headset: 0.04, jar: 0.2, notebook: 0.03 };
+const INSPECT = { note: 0.015, photo: 0.06, radio: 0.08, headset: 0.04, jar: 0.12, notebook: 0.03, drawer: 0.1 };
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
@@ -122,8 +130,15 @@ const notebookUI = setupNotebookUI({
 });
 desk.notebook.setPage(...notebookUI.current());
 
-desk.jar.onSwallow = () => { sfx.crunch(); setTimeout(() => sfx.swallow(), 700); };
+desk.jar.onSwallow = () => {
+  sfx.crunch(); setTimeout(() => sfx.swallow(), 700);
+  // реакция персонажа: по очереди, без повторов подряд
+  setTimeout(() => say(TASTE[tasteI++ % TASTE.length]), 900);
+};
 desk.jar.onRattle = (p) => sfx.rattle(p);
+
+// гибель от страха — всё сначала, с заставки
+const dread = createDread(() => location.reload());
 
 const menu = setupMenu({ onPause: () => (game.paused = true), onResume: () => (game.paused = false) });
 
@@ -145,6 +160,7 @@ const ENTER = {
     desk.notebook.open();
     setTimeout(() => { if (view === 'notebook') notebookUI.open(); }, dur * 1000 + 250);
   },
+  drawer() { desk.drawer.open(); sfx.drawer(true); },
   jar() {
     const p = resolve('jar');
     desk.jar.pickUp(p.pos.clone().add(p.look.clone().sub(p.pos).normalize().multiplyScalar(VIEWS.jar.hold)).add(tmpV.set(0, -0.04, 0)));
@@ -154,6 +170,7 @@ const LEAVE = {
   terminal() { terminal.active = false; },
   notebook() { notebookUI.close(); desk.notebook.close(); },
   jar() { desk.jar.putDown(); save.set('rpkEaten', desk.jar.eaten); },
+  drawer() { desk.drawer.close(); sfx.drawer(false); },
 };
 
 // шаги во время перемещения: по одному на ~полметра пути
@@ -165,8 +182,8 @@ function footsteps(dist, dur) {
 }
 
 const ACTIONS = {
-  door() { if (room.airlock.toggle()) { sfx.airlock(room.airlock.state.open); renderBar(); } },
-  lid() { sfx.lid(desk.jar.toggleLid()); renderBar(); },
+  door() { if (room.airlock.toggle()) { sfx.airlock(room.airlock.state.open, OPEN_TIME); renderBar(); } },
+  lid() { sfx.lid(desk.jar.toggleLid(), LID_TIME); renderBar(); },
   eat() {
     if (!desk.jar.isOpen) { sfx.denied(); return; }
     const mouth = camera.position.clone().add(tmpV.set(0, -0.1, 0).applyQuaternion(camera.quaternion)).addScaledVector(camera.getWorldDirection(new THREE.Vector3()), 0.12);
@@ -337,7 +354,11 @@ function frame() {
   smoothLook.x += (look.x - smoothLook.x) * Math.min(1, dt * 5);
   smoothLook.y += (look.y - smoothLook.y) * Math.min(1, dt * 5);
   lookE.set(-smoothLook.y, -smoothLook.x, 0); lookQ.setFromEuler(lookE);
-  const still = ['terminal', 'notebook', 'note', 'photo', 'radio', 'headset', 'jar'].includes(view);
+  // темнота: голова отвёрнута почти до упора туда, где нет света
+  const fl = FREE_LOOK[view];
+  const dark = game.started && !game.paused && move.t >= 1 && !!fl && Math.abs(smoothLook.x) > 0.58 * fl;
+  dread.update(dt, t, dark);
+  const still = ['terminal', 'notebook', 'note', 'photo', 'radio', 'headset', 'jar', 'drawer'].includes(view);
   breath.set(0, still ? 0 : Math.sin(t * 1.3) * 0.006, 0);
   camera.position.copy(basePos).add(breath);
   camera.quaternion.copy(baseQ).multiply(lookQ);

@@ -1,5 +1,5 @@
 // 8-битный звук: всё синтезируется в WebAudio (квадрат, треугольник, шум) — без файлов.
-let ctx = null, master = null, noiseBuf = null;
+let ctx = null, master = null, noiseBuf = null, whiteBuf = null;
 
 export function unlockAudio() {
   if (!ctx) {
@@ -12,6 +12,10 @@ export function unlockAudio() {
     const d = noiseBuf.getChannelData(0);
     let v = 0;
     for (let i = 0; i < d.length; i++) { if (i % 6 === 0) v = Math.random() * 2 - 1; d[i] = v; }
+    // обычный (не 8-битный) белый шум — для «живых» звуков: шорох, дыхание, сердце
+    whiteBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const wd = whiteBuf.getChannelData(0);
+    for (let i = 0; i < wd.length; i++) wd[i] = Math.random() * 2 - 1;
   }
   if (ctx.state === 'suspended') ctx.resume();
 }
@@ -20,6 +24,30 @@ function env(g, t, a, peak, dur) {
   g.gain.setValueAtTime(0, t);
   g.gain.linearRampToValueAtTime(peak, t + a);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+}
+
+// реалистичный шум (не 8-бит)
+const real = (dur, vol, delay, filter, type) => noise(dur, vol, delay, filter, type, whiteBuf);
+// реалистичный тон: синус
+function sine(freq, dur, vol, delay = 0) { tone('sine', freq, dur, vol, delay); }
+
+// скрип: быстро модулированный фильтрованный шум
+function creak(delay = 0) {
+  if (!ctx) return;
+  const t = ctx.currentTime + delay, o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(260, t); o.frequency.linearRampToValueAtTime(190, t + 0.3);
+  f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 6;
+  env(g, t, 0.03, 0.03, 0.35); o.connect(f).connect(g).connect(master); o.start(t); o.stop(t + 0.4);
+}
+// гул тяжёлого привода на время хода створок
+function motor(dur, delay, up) {
+  if (!ctx) return;
+  const t = ctx.currentTime + delay, o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(up ? 48 : 42, t); o.frequency.linearRampToValueAtTime(up ? 42 : 48, t + dur);
+  f.type = 'lowpass'; f.frequency.value = 160;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.18, t + 0.4); g.gain.setValueAtTime(0.18, t + dur - 0.3); g.gain.linearRampToValueAtTime(0, t + dur);
+  o.connect(f).connect(g).connect(master); o.start(t); o.stop(t + dur + 0.1);
+  real(dur, 0.05, delay, 300);
 }
 
 // одна нота: тип волны, частота (или [от, до]), длительность, громкость, задержка
@@ -37,11 +65,11 @@ function tone(type, freq, dur, vol = 0.2, delay = 0) {
   o.start(t); o.stop(t + dur + 0.05);
 }
 
-function noise(dur, vol = 0.2, delay = 0, filter = 3000, type = 'lowpass') {
+function noise(dur, vol = 0.2, delay = 0, filter = 3000, type = 'lowpass', buf) {
   if (!ctx) return;
   const t = ctx.currentTime + delay;
   const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-  s.buffer = noiseBuf; s.loop = true;
+  s.buffer = buf || noiseBuf; s.loop = true;
   f.type = type; f.frequency.value = filter;
   env(g, t, 0.01, vol, dur);
   s.connect(f).connect(g).connect(master);
@@ -51,67 +79,67 @@ function noise(dur, vol = 0.2, delay = 0, filter = 3000, type = 'lowpass') {
 export const sfx = {
   click() { tone('square', 880, 0.05, 0.12); tone('square', 1320, 0.04, 0.08, 0.04); },
   back() { tone('square', 660, 0.05, 0.12); tone('square', 440, 0.06, 0.1, 0.045); },
-  // поворот головы/корпуса: шорох одежды и скрип стула, растянутые на время поворота
+  // ---- реалистичные звуки (не 8-бит): тело, предметы, окружение ----
+  // поворот: шорох одежды и скрип стула, растянутые на время поворота
   turn(dur = 1.2) {
-    noise(dur * 0.9, 0.07, 0, 700);
-    noise(dur * 0.5, 0.05, dur * 0.2, 1600, 'bandpass');
-    tone('square', [220, 180], 0.12, 0.035, dur * 0.15); tone('square', [200, 240], 0.1, 0.03, dur * 0.45);
+    real(dur * 0.9, 0.06, 0, 900, 'lowpass');
+    real(dur * 0.5, 0.04, dur * 0.2, 2200, 'bandpass');
+    creak(dur * 0.2); if (Math.random() < 0.5) creak(dur * 0.55);
   },
-  // один шаг: глухой удар каблука + шарк подошвы
+  // шаг по бетону: глухой удар подошвы + шарк
   step(i = 0) {
-    const f = i % 2 ? 92 : 104;
-    tone('triangle', [f, f * 0.55], 0.09, 0.28); tone('square', f * 0.5, 0.05, 0.06);
-    noise(0.07, 0.12, 0, 450); noise(0.1, 0.04, 0.05, 2200, 'bandpass');
+    sine(i % 2 ? 70 : 78, 0.09, 0.3); real(0.06, 0.22, 0, 500); real(0.12, 0.05, 0.04, 2400, 'bandpass');
   },
-  // мягкий «проход» воздуха при смене места
-  whoosh(dur = 1) { noise(dur, 0.05, 0, 500); },
+  whoosh(dur = 1) { real(dur, 0.035, 0, 400); },
   enter() { [523, 659, 784, 1046].forEach((f, i) => tone('square', f, 0.07, 0.1, i * 0.06)); },
   boot() { [196, 262, 330, 392, 523].forEach((f, i) => tone('square', f, 0.09, 0.09, i * 0.08)); noise(0.5, 0.05, 0, 6000, 'highpass'); },
   key() { tone('square', 1800 + Math.random() * 600, 0.015, 0.03); },
-  page() { noise(0.08, 0.1, 0, 2500, 'bandpass'); tone('square', 520, 0.03, 0.05); },
-  flicker() { noise(0.12, 0.12, 0, 5000, 'highpass'); tone('square', 60, 0.1, 0.06); },
-  thud() { tone('triangle', [70, 35], 0.5, 0.35); noise(0.25, 0.12, 0, 250); },
-  // шлюз: сигнал, шипение пневматики, удар створок
-  airlock(open) {
-    tone('square', 988, 0.08, 0.1); tone('square', 988, 0.08, 0.1, 0.14);
-    noise(0.9, 0.18, 0.4, 1800, 'bandpass');
-    tone('square', open ? [140, 70] : [70, 140], 0.8, 0.08, 0.4);
-    tone('triangle', [90, 40], 0.25, 0.35, 1.25); noise(0.12, 0.2, 1.25, 300);
+  page() { real(0.12, 0.12, 0, 3000, 'bandpass'); real(0.08, 0.06, 0.08, 5000, 'highpass'); },
+  // треск неона: электрический разряд
+  flicker() { real(0.1, 0.1, 0, 5000, 'highpass'); sine(100, 0.1, 0.05); },
+  // глухой удар за стеной
+  thud() { sine(45, 0.6, 0.45); real(0.35, 0.18, 0, 200); },
+  // тяжёлый шлюз: сигнал (8-бит — это интерфейс), лязг засовов, долгий гул приводов, удар в конце
+  airlock(open, dur = 4) {
+    tone('square', 988, 0.1, 0.08); tone('square', 988, 0.1, 0.08, 0.18); tone('square', 740, 0.14, 0.08, 0.36);
+    for (let i = 0; i < 3; i++) { sine(90, 0.15, 0.35, 0.6 + i * 0.16); real(0.07, 0.2, 0.6 + i * 0.16, 1400, 'bandpass'); }
+    real(0.8, 0.12, 1.0, 1600, 'bandpass'); // сброс давления
+    motor(dur, 1.0, open);
+    sine(38, 0.8, 0.6, 1.0 + dur); real(0.4, 0.3, 1.0 + dur, 180);
   },
-  paper() { noise(0.18, 0.12, 0, 3500, 'bandpass'); noise(0.12, 0.08, 0.12, 2500, 'bandpass'); },
-  // банка: пластик о стол, откручивание крышки, хруст гранулы
-  jar() { tone('square', 330, 0.04, 0.06); noise(0.05, 0.1, 0, 3000, 'bandpass'); },
-  lid(open) {
-    for (let i = 0; i < 5; i++) { noise(0.03, 0.1, i * 0.06, 4200, 'bandpass'); tone('square', open ? 700 + i * 60 : 1000 - i * 60, 0.02, 0.03, i * 0.06); }
-    tone('square', open ? 1200 : 400, 0.05, 0.08, 0.32);
+  // металлический ящик на роликах
+  drawer(open) { real(0.45, 0.1, 0, open ? 1400 : 1100, 'bandpass'); real(0.3, 0.06, 0.05, 4000, 'highpass'); sine(open ? 180 : 140, 0.12, 0.12, 0.45); real(0.08, 0.18, 0.45, 900); },
+  paper() { real(0.2, 0.12, 0, 3500, 'bandpass'); real(0.14, 0.08, 0.12, 2500, 'bandpass'); },
+  // банка: пластик о стол
+  jar() { real(0.04, 0.12, 0, 2200, 'bandpass'); sine(420, 0.05, 0.04); },
+  // крышка: трение резьбы с щелчками, в конце — отрыв/прижим
+  lid(open, dur = 1) {
+    real(dur, 0.05, 0, 3500, 'bandpass');
+    for (let i = 0; i < 7; i++) real(0.015, 0.1, i * dur / 7, 5000, 'highpass');
+    real(0.05, 0.14, dur, open ? 2800 : 1500, 'bandpass');
   },
-  crunch() {
-    for (let i = 0; i < 6; i++) noise(0.04, 0.16 - i * 0.02, i * 0.09 + Math.random() * 0.03, 1800 + Math.random() * 1500, 'bandpass');
-    tone('triangle', [140, 80], 0.2, 0.08, 0.6);
-  },
-  // проглотить: глоток и сухое сглатывание
-  swallow() {
-    tone('triangle', [220, 90], 0.18, 0.18); noise(0.15, 0.06, 0.05, 600);
-    tone('triangle', [160, 70], 0.2, 0.14, 0.35); noise(0.12, 0.05, 0.4, 500);
-  },
-  // шорох и стук гранул о стенки банки; power 0..1
+  crunch() { for (let i = 0; i < 6; i++) real(0.04, 0.2 - i * 0.025, i * 0.09 + Math.random() * 0.03, 1800 + Math.random() * 1800, 'bandpass'); },
+  // глоток: низкий «гульп» и сухое сглатывание
+  swallow() { sine(180, 0.12, 0.2); real(0.12, 0.08, 0.02, 500); sine(130, 0.14, 0.16, 0.3); real(0.1, 0.06, 0.32, 400); },
+  // шорох и стук гранул о пластиковые стенки (не 8-бит); power 0..1
   rattle(power = 0.5) {
-    const n = 1 + Math.round(power * 3);
+    const n = 2 + Math.round(power * 4);
     for (let i = 0; i < n; i++) {
-      const d = Math.random() * 0.07;
-      tone('square', 1400 + Math.random() * 1800, 0.012, 0.025 + power * 0.03, d);
-      noise(0.025, 0.04 + power * 0.05, d, 3000 + Math.random() * 2500, 'bandpass');
+      const d = Math.random() * 0.08;
+      real(0.018, 0.05 + power * 0.08, d, 2500 + Math.random() * 3500, 'bandpass');
+      sine(900 + Math.random() * 1400, 0.02, 0.012 + power * 0.015, d);
     }
-    noise(0.1, 0.03 * power, 0, 1800, 'bandpass');
+    real(0.14, 0.025 + 0.04 * power, 0, 4500, 'bandpass');
   },
+  // «речь» 8-бит для надписей: короткий писк на букву
+  talk(ch) { if (ch.trim()) tone('square', 330 + ((ch.charCodeAt(0) * 37) % 9) * 40, 0.035, 0.05); },
+  // сердце и шёпот для темноты (не 8-бит)
+  // рация: щелчок тангенты 8-бит, дальше живой эфир
+  ptt() { tone('square', 1400, 0.03, 0.08); real(1.8, 0.1, 0.05, 2600, 'bandpass'); tone('square', 1760, 0.08, 0.06, 1.9); },
+  heartbeat(p = 0.5) { sine(58, 0.14, 0.25 + p * 0.35); real(0.08, 0.1 * p, 0, 180); sine(52, 0.12, 0.2 + p * 0.3, 0.2); real(0.07, 0.08 * p, 0.2, 160); },
+  whisper() { real(0.9, 0.05, 0, 2600, 'bandpass'); real(0.6, 0.04, 0.3, 3800, 'bandpass'); },
+  death() { real(1.8, 0.4, 0, 900); sine(40, 2, 0.5); tone('square', [300, 40], 1.2, 0.12, 0.1); },
   empty() { tone('square', 180, 0.12, 0.08); tone('square', 140, 0.16, 0.08, 0.12); },
-  // рация: щелчок тангенты, шипение эфира, короткий писк
-  ptt() {
-    tone('square', 1400, 0.03, 0.08);
-    noise(1.8, 0.1, 0.05, 2600, 'bandpass');
-    for (let i = 0; i < 8; i++) tone('square', 300 + Math.random() * 1200, 0.03, 0.025, 0.2 + i * 0.2);
-    tone('square', 1760, 0.08, 0.07, 1.9); tone('square', 1320, 0.1, 0.07, 1.98);
-  },
   // меню
   menuOpen() { [880, 660, 440].forEach((f, i) => tone('square', f, 0.05, 0.08, i * 0.05)); },
   menuClose() { [440, 660, 880].forEach((f, i) => tone('square', f, 0.05, 0.08, i * 0.05)); },
@@ -157,13 +185,13 @@ export function startAmbience() {
   if (!ctx || ambienceOn) return;
   ambienceOn = true;
   const hum = ctx.createOscillator(), humG = ctx.createGain(), humF = ctx.createBiquadFilter();
-  hum.type = 'square'; hum.frequency.value = 50;
+  hum.type = 'sawtooth'; hum.frequency.value = 50;
   humF.type = 'lowpass'; humF.frequency.value = 220;
   humG.gain.value = 0.035;
   hum.connect(humF).connect(humG).connect(master); hum.start();
 
   const drone = ctx.createOscillator(), dG = ctx.createGain();
-  drone.type = 'triangle'; drone.frequency.value = 55;
+  drone.type = 'sine'; drone.frequency.value = 55;
   const lfo = ctx.createOscillator(), lfoG = ctx.createGain();
   lfo.frequency.value = 0.08; lfoG.gain.value = 0.03;
   lfo.connect(lfoG).connect(dG.gain);
@@ -171,7 +199,7 @@ export function startAmbience() {
   drone.connect(dG).connect(master); drone.start(); lfo.start();
 
   const wind = ctx.createBufferSource(), wF = ctx.createBiquadFilter(), wG = ctx.createGain();
-  wind.buffer = noiseBuf; wind.loop = true;
+  wind.buffer = whiteBuf; wind.loop = true;
   wF.type = 'bandpass'; wF.frequency.value = 400; wF.Q.value = 3;
   wG.gain.value = 0.02;
   wind.connect(wF).connect(wG).connect(master); wind.start();
