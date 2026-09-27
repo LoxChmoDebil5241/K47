@@ -8,13 +8,74 @@
 </head>
 <body>
   <canvas id="game"></canvas>
-  <div id="grain"></div>
-  <div id="vignette"></div>
-  <div id="fade"></div>
+
+  <!-- навигация по комнате -->
   <nav id="ui">
     <p id="hint"></p>
     <div id="bar"></div>
   </nav>
+
+  <!-- кнопка меню -->
+  <button id="menuBtn" class="menu-btn" aria-label="Меню" hidden><i></i><i></i><i></i></button>
+
+  <!-- блокнот -->
+  <section id="nb" class="nb" hidden aria-label="Блокнот">
+    <div class="nb-book">
+      <div class="nb-page">
+        <div class="nb-head"><span>ЖУРНАЛ · К-47</span><span id="nbNum">1 / 50</span></div>
+        <textarea id="nbText" maxlength="700" spellcheck="false" placeholder="Пиши здесь…"></textarea>
+      </div>
+    </div>
+    <div class="nb-nav">
+      <button class="px" id="nbPrev">◀</button>
+      <button class="px" id="nbClose">ЗАКРЫТЬ</button>
+      <button class="px" id="nbNext">▶</button>
+    </div>
+  </section>
+
+  <!-- пауза -->
+  <div id="pause" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
+    <div class="panel">
+      <h2 id="pauseTitle" class="glitch" data-text="ПАУЗА">ПАУЗА</h2>
+      <p class="sub">ИГРОВОЕ ВРЕМЯ ОСТАНОВЛЕНО</p>
+      <div class="list">
+        <button class="px" id="pmContinue">ПРОДОЛЖИТЬ</button>
+        <button class="px" data-dummy>СОХРАНИТЬ ПРОГРЕСС</button>
+        <button class="px" data-dummy>НАСТРОЙКИ</button>
+        <button class="px danger" data-dummy>ЗАКОНЧИТЬ ЦИКЛ</button>
+        <button class="px" id="pmExit">ВЫЙТИ</button>
+      </div>
+    </div>
+  </div>
+  <div id="confirm" class="modal confirm" hidden role="dialog" aria-modal="true">
+    <div class="panel">
+      <h2>ВЫЙТИ ИЗ ИГРЫ?</h2>
+      <p class="sub">НЕСОХРАНЁННЫЙ ЦИКЛ БУДЕТ ПОТЕРЯН</p>
+      <div class="row">
+        <button class="px" id="cfNo">НЕТ</button>
+        <button class="px danger" id="cfYes">ДА, ВЫЙТИ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- заставка -->
+  <div id="boot" class="boot" role="button" tabindex="0" aria-label="К-47. Нормы расхода плоти. Цикл-48. Коснитесь экрана.">
+    <canvas id="bootFx"></canvas>
+    <h1 class="boot-title">
+      <span class="bt-k" data-text="К-47.">К-47.</span>
+      <span class="bt-main">Нормы расхода плоти.</span>
+      <span class="bt-cycle">ЦИКЛ-48</span>
+    </h1>
+    <p class="bt-press">КОСНИТЕСЬ ЭКРАНА</p>
+  </div>
+  <div id="bye" class="bye" hidden><p>СЕАНС ЗАВЕРШЁН</p></div>
+
+  <!-- постобработка поверх всего -->
+  <div class="post post-scan"></div>
+  <div class="post post-vignette"></div>
+  <div class="post post-grain"></div>
+  <div id="fade"></div>
+
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>

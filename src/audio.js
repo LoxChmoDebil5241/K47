@@ -12,7 +12,6 @@ export function unlockAudio() {
     const d = noiseBuf.getChannelData(0);
     let v = 0;
     for (let i = 0; i < d.length; i++) { if (i % 6 === 0) v = Math.random() * 2 - 1; d[i] = v; }
-    startAmbience();
   }
   if (ctx.state === 'suspended') ctx.resume();
 }
@@ -52,9 +51,20 @@ function noise(dur, vol = 0.2, delay = 0, filter = 3000, type = 'lowpass') {
 export const sfx = {
   click() { tone('square', 880, 0.05, 0.12); tone('square', 1320, 0.04, 0.08, 0.04); },
   back() { tone('square', 660, 0.05, 0.12); tone('square', 440, 0.06, 0.1, 0.045); },
-  turn() { noise(0.35, 0.12, 0, 900); tone('triangle', [180, 90], 0.3, 0.15); },
-  approach() { tone('square', 110, 0.08, 0.15); tone('square', 98, 0.08, 0.15, 0.22); noise(0.06, 0.08, 0, 400); noise(0.06, 0.08, 0.22, 400); },
-  retreat() { tone('square', 98, 0.08, 0.15); tone('square', 110, 0.08, 0.15, 0.2); },
+  // поворот головы/корпуса: шорох одежды и скрип стула, растянутые на время поворота
+  turn(dur = 1.2) {
+    noise(dur * 0.9, 0.07, 0, 700);
+    noise(dur * 0.5, 0.05, dur * 0.2, 1600, 'bandpass');
+    tone('square', [220, 180], 0.12, 0.035, dur * 0.15); tone('square', [200, 240], 0.1, 0.03, dur * 0.45);
+  },
+  // один шаг: глухой удар каблука + шарк подошвы
+  step(i = 0) {
+    const f = i % 2 ? 92 : 104;
+    tone('triangle', [f, f * 0.55], 0.09, 0.28); tone('square', f * 0.5, 0.05, 0.06);
+    noise(0.07, 0.12, 0, 450); noise(0.1, 0.04, 0.05, 2200, 'bandpass');
+  },
+  // мягкий «проход» воздуха при смене места
+  whoosh(dur = 1) { noise(dur, 0.05, 0, 500); },
   enter() { [523, 659, 784, 1046].forEach((f, i) => tone('square', f, 0.07, 0.1, i * 0.06)); },
   boot() { [196, 262, 330, 392, 523].forEach((f, i) => tone('square', f, 0.09, 0.09, i * 0.08)); noise(0.5, 0.05, 0, 6000, 'highpass'); },
   key() { tone('square', 1800 + Math.random() * 600, 0.015, 0.03); },
@@ -64,15 +74,73 @@ export const sfx = {
   // шлюз: сигнал, шипение пневматики, удар створок
   airlock(open) {
     tone('square', 988, 0.08, 0.1); tone('square', 988, 0.08, 0.1, 0.14);
-    noise(0.7, 0.18, 0.3, 1800, 'bandpass');
-    tone('square', open ? [140, 70] : [70, 140], 0.6, 0.08, 0.3);
-    tone('triangle', [90, 40], 0.25, 0.35, open ? 0.95 : 0.95); noise(0.12, 0.2, 0.95, 300);
+    noise(0.9, 0.18, 0.4, 1800, 'bandpass');
+    tone('square', open ? [140, 70] : [70, 140], 0.8, 0.08, 0.4);
+    tone('triangle', [90, 40], 0.25, 0.35, 1.25); noise(0.12, 0.2, 1.25, 300);
   },
   paper() { noise(0.18, 0.12, 0, 3500, 'bandpass'); noise(0.12, 0.08, 0.12, 2500, 'bandpass'); },
+  // банка: пластик о стол, откручивание крышки, хруст гранулы
+  jar() { tone('square', 330, 0.04, 0.06); noise(0.05, 0.1, 0, 3000, 'bandpass'); },
+  lid(open) {
+    for (let i = 0; i < 5; i++) { noise(0.03, 0.1, i * 0.06, 4200, 'bandpass'); tone('square', open ? 700 + i * 60 : 1000 - i * 60, 0.02, 0.03, i * 0.06); }
+    tone('square', open ? 1200 : 400, 0.05, 0.08, 0.32);
+  },
+  crunch() {
+    for (let i = 0; i < 6; i++) noise(0.04, 0.16 - i * 0.02, i * 0.09 + Math.random() * 0.03, 1800 + Math.random() * 1500, 'bandpass');
+    tone('triangle', [140, 80], 0.2, 0.08, 0.6);
+  },
+  empty() { tone('square', 180, 0.12, 0.08); tone('square', 140, 0.16, 0.08, 0.12); },
+  // рация: щелчок тангенты, шипение эфира, короткий писк
+  ptt() {
+    tone('square', 1400, 0.03, 0.08);
+    noise(1.8, 0.1, 0.05, 2600, 'bandpass');
+    for (let i = 0; i < 8; i++) tone('square', 300 + Math.random() * 1200, 0.03, 0.025, 0.2 + i * 0.2);
+    tone('square', 1760, 0.08, 0.07, 1.9); tone('square', 1320, 0.1, 0.07, 1.98);
+  },
+  // меню
+  menuOpen() { [880, 660, 440].forEach((f, i) => tone('square', f, 0.05, 0.08, i * 0.05)); },
+  menuClose() { [440, 660, 880].forEach((f, i) => tone('square', f, 0.05, 0.08, i * 0.05)); },
+  denied() { tone('square', 120, 0.08, 0.08); tone('square', 110, 0.1, 0.08, 0.09); },
+  confirm() { tone('square', 523, 0.07, 0.1); tone('square', 392, 0.14, 0.1, 0.08); },
+  // заставка: вход в игру
+  start() {
+    [262, 330, 392, 523, 659, 784].forEach((f, i) => tone('square', f, 0.08, 0.07, i * 0.07));
+    tone('triangle', [55, 110], 1.6, 0.25, 0.2); noise(1.4, 0.06, 0.2, 4000, 'highpass');
+  },
+  glitch() { for (let i = 0; i < 4; i++) tone('square', 200 + Math.random() * 2000, 0.02, 0.04, i * 0.03); noise(0.08, 0.06, 0, 6000, 'highpass'); },
 };
 
+// приглушить всё (пауза) и вернуть
+export function duck(on) {
+  if (!ctx) return;
+  master.gain.cancelScheduledValues(ctx.currentTime);
+  master.gain.linearRampToValueAtTime(on ? 0.18 : 0.5, ctx.currentTime + 0.25);
+}
+
+// гул заставки: низкий дрон, который гаснет при входе в игру
+let bootDrone = null;
+export function startBootDrone() {
+  if (!ctx || bootDrone) return;
+  const o = ctx.createOscillator(), o2 = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+  o.type = 'sawtooth'; o.frequency.value = 41; o2.type = 'square'; o2.frequency.value = 61.5;
+  f.type = 'lowpass'; f.frequency.value = 180;
+  g.gain.setValueAtTime(0, ctx.currentTime); g.gain.linearRampToValueAtTime(0.09, ctx.currentTime + 2);
+  o.connect(f); o2.connect(f); f.connect(g).connect(master); o.start(); o2.start();
+  bootDrone = { o, o2, g };
+}
+export function stopBootDrone() {
+  if (!bootDrone) return;
+  const { o, o2, g } = bootDrone; bootDrone = null;
+  g.gain.cancelScheduledValues(ctx.currentTime);
+  g.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.5);
+  o.stop(ctx.currentTime + 1.6); o2.stop(ctx.currentTime + 1.6);
+}
+
 // фон: низкий гул неона + дрон холода
-function startAmbience() {
+let ambienceOn = false;
+export function startAmbience() {
+  if (!ctx || ambienceOn) return;
+  ambienceOn = true;
   const hum = ctx.createOscillator(), humG = ctx.createGain(), humF = ctx.createBiquadFilter();
   hum.type = 'square'; hum.frequency.value = 50;
   humF.type = 'lowpass'; humF.frequency.value = 220;
