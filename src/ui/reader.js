@@ -1,5 +1,6 @@
 import { sfx } from '../audio.js';
 import { save } from '../state.js';
+import { GAMES } from '../minigames/index.js';
 
 // Экран «внутри терминала»: полный текст главы. Восстановление файлов — на самом терминале.
 export function setupReader(book, { onClose }) {
@@ -50,6 +51,14 @@ export function setupReader(book, { onClose }) {
   // испытание на весь экран: 5 касаний за 5 секунд
   function game(ch, done) {
     chapter = ch; el.hidden = false; stop(); header();
+    if (GAMES[ch]) {
+      // настоящая мини-игра главы — на весь экран, без шапки
+      el.className = 'mode-game full'; foot.innerHTML = ''; body.innerHTML = '';
+      const root = document.createElement('div'); body.appendChild(root);
+      let fin = false;
+      cleanup = GAMES[ch].run(root, (win) => { if (fin) return; fin = true; done(win); close(); }) || null;
+      return;
+    }
     el.className = 'mode-game'; foot.innerHTML = ''; body.innerHTML = '';
     const box = document.createElement('div'); box.className = 'tap-game';
     box.innerHTML = '<p class="tg-title">КАСАЙТЕСЬ ЭКРАНА</p><p class="tg-count">0 / 5</p><div class="tg-bar"><i></i></div><p class="tg-time">5.0 С</p>';

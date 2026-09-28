@@ -166,6 +166,43 @@ export const sfx = {
 let muted = false;
 export function setMuted(m) { muted = m; if (ctx) master.gain.value = m ? 0 : 0.5; }
 
+// ---- звуки посадки в бурю (реалистичные; рычаги — 8-бит как взаимодействия) ----
+export const storm = {
+  // постоянный фон: низкий гул двигателей + вой ветра; вернёт { set(power), stop() }
+  start() {
+    if (!ctx) return { set() {}, stop() {} };
+    const t = ctx.currentTime, out = ctx.createGain(); out.gain.value = 0; out.connect(master);
+    out.gain.linearRampToValueAtTime(1, t + 1.5);
+    const hum = ctx.createOscillator(), hf = ctx.createBiquadFilter(), hg = ctx.createGain();
+    hum.type = 'sawtooth'; hum.frequency.value = 38; hf.type = 'lowpass'; hf.frequency.value = 140; hg.gain.value = 0.22;
+    hum.connect(hf).connect(hg).connect(out); hum.start();
+    const wind = ctx.createBufferSource(), wf = ctx.createBiquadFilter(), wg = ctx.createGain();
+    wind.buffer = whiteBuf; wind.loop = true; wf.type = 'bandpass'; wf.frequency.value = 500; wf.Q.value = 0.8; wg.gain.value = 0.12;
+    wind.connect(wf).connect(wg).connect(out); wind.start();
+    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.3; lg.gain.value = 250;
+    lfo.connect(lg).connect(wf.frequency); lfo.start();
+    return {
+      set(p) { hum.frequency.value = 38 + p * 18; hg.gain.value = 0.22 + p * 0.15; wg.gain.value = 0.12 + p * 0.1; },
+      stop() { out.gain.cancelScheduledValues(ctx.currentTime); out.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.8); for (const n of [hum, wind, lfo]) n.stop(ctx.currentTime + 0.9); },
+    };
+  },
+  alarm() { for (let i = 0; i < 3; i++) { tone('square', 880, 0.14, 0.06, i * 0.28); tone('square', 660, 0.14, 0.06, i * 0.28 + 0.14); } },
+  lock() { tone('square', 1320, 0.06, 0.08); tone('square', 1760, 0.12, 0.08, 0.07); },
+  captured() { [784, 988, 1175, 1568].forEach((f, i) => tone('square', f, 0.08, 0.08, i * 0.07)); },
+  lever() { real(0.05, 0.25, 0, 1500, 'bandpass'); tone('square', 220, 0.04, 0.06); },
+  boost() { real(0.9, 0.3, 0, 900); sine(60, 0.9, 0.35); },
+  // порыв: тихий гул и тряска
+  gust() { real(1.4, 0.2, 0, 350); sine(45, 1.2, 0.3); },
+  // лёд: множество тихих ударов
+  ice() { for (let i = 0; i < 26; i++) real(0.02, 0.08 + Math.random() * 0.1, Math.random() * 1.6, 2500 + Math.random() * 3000, 'bandpass'); sine(70, 0.3, 0.2); },
+  // термальный пузырь: треск замерзания
+  freeze() { for (let i = 0; i < 40; i++) real(0.01, 0.05 + Math.random() * 0.06, Math.random() * 2, 6000 + Math.random() * 3000, 'highpass'); real(2, 0.05, 0, 800); },
+  dodge() { real(0.4, 0.12, 0, 2500, 'bandpass'); },
+  radio() { real(0.25, 0.08, 0, 2200, 'bandpass'); tone('square', 1200, 0.03, 0.04); },
+  // ворота ангара: скрежет, гул приводов
+  hangar() { real(5, 0.12, 0, 600, 'bandpass'); sine(42, 5, 0.3); for (let i = 0; i < 10; i++) real(0.1, 0.1, i * 0.5, 3000, 'bandpass'); },
+};
+
 // приглушить всё (пауза) и вернуть
 export function duck(on) {
   if (!ctx) return;

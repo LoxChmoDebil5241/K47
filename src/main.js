@@ -446,6 +446,7 @@ window.__k47 = {
   get view() { return view; },
   term: () => terminal.state,
   tapTerm: (u, v) => terminal.tap(u, v),
+  playGame: (ch) => reader.game(ch, (w) => console.log('RESULT', w)),
   termButtons: () => terminal.buttons.map((b) => [b.x + b.w / 2, b.y + b.h / 2]),
   get moving() { return move.t < 1; },
 };
