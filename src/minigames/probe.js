@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { sfx, storm } from '../audio.js';
+import { noise, fbm, ridge, smooth } from './noise.js';
+import { startWar } from './raid/war.js';
 
 // Пролог «Ол-12-П» — разведка и раздел влияния.
 // Часть 1 (до 3 мин): голографическая спектрограмма ледяной планеты — вращаем, приближаем.
@@ -8,8 +10,8 @@ import { sfx, storm } from '../audio.js';
 //   C. 15 поверхностных масс, в одной — осмий. Сканов 8, скан показывает близость по плотности.
 //   Стихии планеты периодически дают помехи — спектрограмма и модель искажаются.
 // Заставка: «Это... Осмий. Эта планета богата...» растворяется в атмосфере.
-// Часть 2 (4 мин): 14 узлов влияния СНК и НаноТрейзен. Мы — третья сторона, держим баланс.
-const PART1 = 180, PART2 = 240;
+// Часть 2 (до 30:00 всего): захват планеты — 4 сектора, запросы НТ и СНК, рейдерские отряды (raid/war.js).
+const PART1 = 180, TOTAL = 30 * 60; // разведка до 3 минут, весь пролог — 30 минут
 const SITES = [
   { name: 'ГОРНЫЙ МАССИВ', slope: 38, ice: 40, wind: 71, ok: false, why: 'Уклон. Зонд сорвался со склона.' },
   { name: 'РАВНИНА', slope: 3, ice: 120, wind: 22, ok: true },
@@ -19,25 +21,6 @@ const SITES = [
 ];
 const SKY_GLITCH = ['ГРОЗОВОЙ ФРОНТ', 'МАГНИТНАЯ БУРЯ', 'ИОННЫЙ ШТОРМ', 'СНЕЖНЫЙ ЦИКЛОН'];
 const GROUND_GLITCH = ['ПОЗЁМКА', 'ЛЕДОВЫЙ СДВИГ', 'СТАТИКА', 'ОБВАЛ КАРНИЗА'];
-
-// ---------- шум ----------
-function hash(x, y, z) {
-  let h = Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(z, 1274126177);
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-}
-function noise(x, y, z) {
-  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
-  const u = x - xi, v = y - yi, w = z - zi;
-  const a = u * u * (3 - 2 * u), b = v * v * (3 - 2 * v), c = w * w * (3 - 2 * w);
-  const l = (p, q, t) => p + (q - p) * t;
-  return l(
-    l(l(hash(xi, yi, zi), hash(xi + 1, yi, zi), a), l(hash(xi, yi + 1, zi), hash(xi + 1, yi + 1, zi), a), b),
-    l(l(hash(xi, yi, zi + 1), hash(xi + 1, yi, zi + 1), a), l(hash(xi, yi + 1, zi + 1), hash(xi + 1, yi + 1, zi + 1), a), b), c);
-}
-function fbm(x, y, z, oct = 5) { let s = 0, a = 0.5, f = 1; for (let i = 0; i < oct; i++) { s += noise(x * f, y * f, z * f) * a; f *= 2.03; a *= 0.5; } return s / (1 - 0.5 ** oct); }
-const ridge = (x, y, z, oct = 4) => { let s = 0, a = 0.5, f = 1; for (let i = 0; i < oct; i++) { s += (1 - Math.abs(noise(x * f, y * f, z * f) * 2 - 1)) ** 2 * a; f *= 2.1; a *= 0.5; } return s; };
-const smooth = (e0, e1, x) => { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
 
 // карты планеты: цвет, высота (рельеф), облака — равнопромежуточная проекция без шва
 function planetMaps() {
@@ -223,7 +206,7 @@ export default {
     const pts = new Map(); let pinch = 0;
     root.addEventListener('pointerdown', (e) => { if (e.target.closest('button')) return; pts.set(e.pointerId, [e.clientX, e.clientY]); root.setPointerCapture?.(e.pointerId); pinch = 0; });
     root.addEventListener('pointermove', (e) => {
-      const p = pts.get(e.pointerId); if (!p || focus) return;
+      const p = pts.get(e.pointerId); if (!p || focus || orb.locked) return;
       if (pts.size === 1) { orb.yaw -= (e.clientX - p[0]) * 0.006; orb.pitch = Math.max(orb.pmin, Math.min(orb.pmax, orb.pitch + (e.clientY - p[1]) * 0.006)); }
       p[0] = e.clientX; p[1] = e.clientY;
       if (pts.size === 2) { const [a, b] = [...pts.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) zoom(pinch / d); pinch = d; }
@@ -231,7 +214,7 @@ export default {
     const up = (e) => { pts.delete(e.pointerId); pinch = 0; };
     root.addEventListener('pointerup', up); root.addEventListener('pointercancel', up);
     root.addEventListener('wheel', (e) => { e.preventDefault(); zoom(e.deltaY > 0 ? 1.1 : 0.9); }, { passive: false });
-    function zoom(k) { orb.dist = Math.max(orb.min, Math.min(orb.max, orb.dist * k)); }
+    function zoom(k) { if (orb.locked) return; orb.dist = Math.max(orb.min, Math.min(orb.max, orb.dist * k)); }
     const orbPos = (v) => v.set(Math.sin(orb.yaw) * Math.cos(orb.pitch), Math.sin(orb.pitch), Math.cos(orb.yaw) * Math.cos(orb.pitch)).multiplyScalar(orb.dist).add(orb.target);
 
     // ---------- помехи от стихий ----------
@@ -409,58 +392,20 @@ export default {
       setTimeout(() => { p.remove(); part2(); }, 9800);
     }
 
-    // ---------- часть 2: баланс влияния ----------
-    const nodes = [];
-    let selected = null;
-    const P2 = { units: 6, req: null, nextReq: 12, danger: 0 };
+    // ---------- часть 2: захват планеты ----------
+    let warCtl = null;
     function part2() {
-      st.part2 = true; st.stage = 'war';
-      root.classList.add('war');
-      surf.material.color.set(0x9ab0c4);
-      $('.pr-stage').textContent = 'ЭТАП 4 · РАЗДЕЛ ВЛИЯНИЯ · СНК ⇄ НАНОТРЕЙЗЕН';
-      bottom.innerHTML = `<div class="pr-bal"><span>СНК</span><div><i></i><b></b></div><span>НТ</span></div><p class="pr-units"></p>`;
-      for (let i = 0; i < 14; i++) {
-        const lat = ((i % 7) / 6 - 0.5) * 1.7, wl = (i < 7 ? -1 : 1) * (0.55 + ((i * 37) % 7) / 7 * 0.85);
-        const n = { id: i, v: (Math.random() - 0.5) * 1.2, units: 0, side: 0, fort: 0, drift: (Math.random() - 0.5) * 0.02 };
-        n.m = marker(visible(lat, wl, 1.05), 'node', `У-${String(i + 1).padStart(2, '0')}`, () => select(n));
-        nodes.push(n);
-      }
-      say('Актив на связи. Держите их в равновесии.');
-    }
-    function select(n) {
-      selected = n; sfx.click();
-      nodes.forEach((k) => k.m.el.classList.toggle('sel', k === n));
-      const v = Math.round((n.v + 1) * 50);
-      info.innerHTML = `<b>УЗЕЛ У-${String(n.id + 1).padStart(2, '0')}</b><p>СНК ${100 - v}% · НТ ${v}%</p><p>АКТИВ: ${n.units} ${n.side ? (n.side < 0 ? '→ СНК' : '→ НТ') : ''}${n.fort > 0 ? ' · ЗАКРЕПЛЁН' : ''}</p>
-        <div class="pr-acts"><button data-a="snk">ШТУРМ ЗА СНК</button><button data-a="nt">ШТУРМ ЗА НТ</button><button data-a="rein">ПОДКРЕПЛЕНИЕ</button><button data-a="fort">ЗАКРЕПИТЬ</button><button data-a="recall">ОТОЗВАТЬ</button></div>`;
-      info.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('pointerdown', (e) => { e.stopPropagation(); act(n, b.dataset.a); }));
-    }
-    function act(n, a) {
-      if ((a === 'snk' || a === 'nt' || a === 'rein' || a === 'fort') && P2.units <= 0) { sfx.denied(); say('Свободного актива нет.', 'warn'); return; }
-      if (a === 'snk' || a === 'nt') { if (!n.units) { n.units = 1; P2.units--; } n.side = a === 'snk' ? -1 : 1; storm.lever(); }
-      if (a === 'rein') { if (!n.side) { sfx.denied(); say('Сначала назначьте штурм.', 'warn'); return; } n.units++; P2.units--; storm.lever(); }
-      if (a === 'fort') { n.fort = 30; P2.units--; setTimeout(() => P2.units++, 30000); storm.lock(); }
-      if (a === 'recall') { P2.units += n.units; n.units = 0; n.side = 0; sfx.back(); }
-      select(n);
-    }
-    const REQ = [
-      ['СНК', 'Просим прикрыть узел {n}. Щедро заплатим.', -1], ['НТ', 'Узел {n} нужен нам к рассвету. Обеспечьте.', 1],
-      ['СНК', 'Отзовите актив из {n}, или мы решим вопрос сами.', -1], ['НТ', 'Нужна диверсия в секторе {n}.', 1],
-      ['СНК', 'Пропустите наш конвой через {n}.', -1], ['НТ', 'Закройте глаза на {n}. Контракт продлим.', 1],
-    ];
-    function request() {
-      const [who, text, side] = REQ[Math.floor(Math.random() * REQ.length)], n = nodes[Math.floor(Math.random() * 14)];
-      P2.req = { side, n, left: 12 };
-      const box = document.createElement('div'); box.className = `pr-req ${side < 0 ? 'snk' : 'nt'}`;
-      box.innerHTML = `<b>${who} · ЗАПРОС</b><p></p><div><button data-r="yes">ПРИНЯТЬ</button><button data-r="no">ОТКЛОНИТЬ</button></div><i></i>`;
-      box.querySelector('p').textContent = text.replace('{n}', `У-${String(n.id + 1).padStart(2, '0')}`);
-      root.appendChild(box); P2.req.el = box; storm.radio();
-      box.querySelectorAll('[data-r]').forEach((b) => b.addEventListener('pointerdown', (e) => { e.stopPropagation(); answer(b.dataset.r === 'yes'); }));
-    }
-    function answer(yes) {
-      const R = P2.req; if (!R) return; P2.req = null; R.el.remove();
-      if (yes) { R.n.v += R.side * 0.35; sfx.confirm(); }                       // приняли — узел качнулся к ним
-      else { nodes.forEach((n) => (n.v += R.side * 0.06)); sfx.denied(); say(R.side < 0 ? 'СНК недовольны. Давят везде.' : 'НТ недовольны. Давят везде.', 'warn'); }
+      st.part2 = true; st.stage = 'war'; info.innerHTML = '';
+      warCtl = startWar({
+        root, scene, camera, orb, canvas: cv, info, bottom, onSphere,
+        setOrbit, marker, clearMarkers, say,
+        unmark(m) { m.el.remove(); const i = markers.indexOf(m); if (i >= 0) markers.splice(i, 1); },
+        snap() { orbPos(camera.position); orb.look.copy(orb.target); camera.lookAt(orb.look); },
+        planet(show) { orbitParts.forEach((o) => (o.visible = show)); },
+        flash() { root.classList.remove('pr-cut'); void root.offsetWidth; root.classList.add('pr-cut'); },
+        stage(t) { $('.pr-stage').textContent = t; },
+        end: (w, text) => end(w, text),
+      });
     }
 
     // ---------- цикл ----------
@@ -469,7 +414,8 @@ export default {
     function frame(now) {
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       if (st.over) return;
-      st.t += dt;
+      const paused = !!warCtl?.paused; // открыто окно подтверждения — время войны стоит
+      if (!paused) st.t += dt;
       const w = cv.clientWidth, h = cv.clientHeight;
       if (cv.width !== Math.round(w * renderer.getPixelRatio())) { renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
       // стихии: облака, ветер, циклоны, позёмка
@@ -490,7 +436,7 @@ export default {
       scanRing.position.y = Math.sin(st.t * 0.8) * 1.1; scanRing.scale.setScalar(Math.sqrt(Math.max(0.05, 1 - (scanRing.position.y / 1.2) ** 2)));
       holo.rotation.y -= dt * 0.05;
       // помехи
-      if (st.stage !== 'zoom' && st.stage !== 'cut') {
+      if (st.stage !== 'zoom' && st.stage !== 'cut' && st.stage !== 'war') {
         if (gl.on > 0) { gl.on -= dt; glitchFrame(); if (gl.on <= 0) { glitchEnd(); gl.next = st.t + 6 + Math.random() * 9; } }
         else if (st.t > gl.next) glitchStart();
       }
@@ -517,51 +463,30 @@ export default {
         const left = PART1 - st.t; $('.pr-time').textContent = fmt(left);
         if (left <= 0 && st.stage !== 'cut') fail('Время на разведку вышло.');
       } else {
-        st.t2 += dt; const left = PART2 - st.t2; $('.pr-time').textContent = fmt(left);
-        war(dt);
-        if (left <= 0) return win();
+        const left = TOTAL - st.t; $('.pr-time').textContent = fmt(left);
+        warCtl.update(paused ? 0 : dt, dt);
+        if (st.over) return;
+        if (left <= 0) { const [w0, text] = warCtl.result(); return end(w0, text); }
       }
       renderer.render(scene, camera);
       raf = requestAnimationFrame(frame);
     }
     const fmt = (s) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, '0')}`;
 
-    function war(dt) {
-      // фракции сами тянут узлы; актив толкает к выбранной стороне; закреплённые — стоят
-      let sum = 0;
-      for (const n of nodes) {
-        if (n.fort > 0) n.fort -= dt;
-        else { n.v += n.drift * dt * 3 + (Math.random() - 0.5) * 0.04 * dt + n.side * n.units * 0.05 * dt; if (Math.random() < dt * 0.02) n.drift = (Math.random() - 0.5) * 0.03; }
-        n.v = Math.max(-1, Math.min(1, n.v)); sum += n.v;
-        const v = (n.v + 1) / 2;
-        n.m.el.style.setProperty('--c', `rgb(${Math.round(60 + v * 195)},${Math.round(140 - v * 30)},${Math.round(255 - v * 205)})`);
-        n.m.el.classList.toggle('fort', n.fort > 0); n.m.el.classList.toggle('act', n.units > 0);
-      }
-      const bal = sum / nodes.length; // −1 весь СНК, +1 весь НТ
-      root.querySelector('.pr-bal i').style.left = `${(bal + 1) * 50}%`;
-      root.querySelector('.pr-units').textContent = `СВОБОДНЫЙ АКТИВ: ${P2.units} · ДЕРЖИТЕ БАЛАНС В ЗЕЛЁНОЙ ЗОНЕ`;
-      const bad = Math.abs(bal) > 0.3;
-      root.classList.toggle('danger', bad);
-      P2.danger = bad ? P2.danger + dt : Math.max(0, P2.danger - dt * 2);
-      if (bad && Math.floor(P2.danger * 2) !== Math.floor((P2.danger - dt) * 2)) storm.alarm();
-      if (P2.danger > 12) fail(bal < 0 ? 'СНК захватили планету.' : 'НаноТрейзен захватили планету.');
-      // запросы
-      if (!P2.req && st.t2 > P2.nextReq) { request(); P2.nextReq = st.t2 + 16 + Math.random() * 10; }
-      if (P2.req) { P2.req.left -= dt; P2.req.el.querySelector('i').style.width = `${Math.max(0, P2.req.left / 12) * 100}%`; if (P2.req.left <= 0) answer(false); }
-      if (selected && Math.random() < dt * 2) select(selected);
-    }
-
     function end(win, text) {
-      if (st.over) return; st.over = true; cancelAnimationFrame(raf); hum.stop();
+      if (st.over) return; st.over = true; cancelAnimationFrame(raf); hum.stop(); warCtl?.dispose();
       const box = document.createElement('div'); box.className = `pr-end ${win ? 'win' : 'lose'}`; box.textContent = text; root.appendChild(box);
       win ? storm.captured() : storm.alarm();
       setTimeout(() => done(win), 2600);
     }
     const fail = (why) => end(false, why);
-    const win = () => end(true, 'РАВНОВЕСИЕ СОХРАНЕНО. АКТИВ ОТОЗВАН.');
 
     stageAtmo();
     raf = requestAnimationFrame(frame);
-    return () => { st.over = true; cancelAnimationFrame(raf); hum.stop(); renderer.dispose(); };
+    // для автотестов: пропустить разведку сразу к захвату
+    root.__skipToWar = () => { clearMarkers(); terrain.visible = false; orbitParts.forEach((o) => (o.visible = true)); part2(); };
+    root.__war = () => warCtl?.debug;
+    Object.defineProperty(root, '__ctl', { get: () => warCtl, configurable: true });
+    return () => { st.over = true; cancelAnimationFrame(raf); hum.stop(); warCtl?.dispose(); renderer.dispose(); };
   },
 };

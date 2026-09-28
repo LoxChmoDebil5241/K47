@@ -203,6 +203,25 @@ export const storm = {
   hangar() { real(5, 0.12, 0, 600, 'bandpass'); sine(42, 5, 0.3); for (let i = 0; i < 10; i++) real(0.1, 0.1, i * 0.5, 3000, 'bandpass'); },
 };
 
+// ---- звуки боя рейдеров (реалистичные) ----
+export const war = {
+  shot(kind) {
+    if (kind === 'sniper') { real(0.18, 0.32, 0, 2600, 'bandpass'); sine(90, 0.2, 0.2); real(0.7, 0.05, 0.08, 600); }
+    else if (kind === 'smg') { for (let i = 0; i < 6; i++) real(0.04, 0.16, i * 0.065, 2300, 'bandpass'); }
+    else if (kind === 'shotgun') { real(0.35, 0.36, 0, 1100); sine(60, 0.3, 0.28); }
+    else if (kind === 'burner') { real(1.1, 0.12, 0, 900, 'bandpass'); real(1.1, 0.07, 0, 250); }
+    else if (kind === 'mg') { for (let i = 0; i < 9; i++) { real(0.05, 0.22, i * 0.085, 1500, 'bandpass'); sine(55, 0.07, 0.12, i * 0.085); } }
+    else if (kind === 'hammer') { sine(70, 0.22, 0.4); real(0.06, 0.25, 0, 3800, 'bandpass'); }
+    else if (kind === 'knife') real(0.07, 0.12, 0, 5500, 'highpass');
+  },
+  // высадка: рёв двигателей и удар о грунт
+  drop() { real(2.2, 0.22, 0, 500); sine(40, 2, 0.3); sine(46, 0.5, 0.4, 2); real(0.3, 0.2, 2, 300); },
+  fall() { real(0.2, 0.12, 0, 400); },
+};
+
+// гром: далёкий раскат
+export function thunder(delay = 0) { real(2.6, 0.3, delay, 180); real(0.4, 0.18, delay, 900); sine(38, 2.4, 0.25, delay); }
+
 // приглушить всё (пауза) и вернуть
 export function duck(on) {
   if (!ctx) return;

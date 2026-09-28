@@ -1,15 +1,16 @@
-import { storm, sfx } from '../audio.js';
+import { storm, sfx, thunder } from '../audio.js';
 
 // Глава 1 «Вторжение» — посадка челнока в бурю.
 // Вид из кабины: прицел ведётся джойстиком (справа снизу) к сигналу на земле.
 // Прицел на сигнале — шкала ЗАХВАТ растёт; полная — дёрнуть рычаг ЗАХВАТ. Нужно 3 захвата за 2 минуты.
-// ФОРСАЖ: быстрее снижение, уклонение от угроз, но сбивает захват и усиливает тряску.
+// ФОРСАЖ: быстрее снижение, уклонение от угроз, но сбивает захват и усиливает тряску. Стоит 7–8% топлива.
+// Эффекты: молнии с громом, выбросы плазмы, иней на фонаре, трещины стекла от ударов, искры, огни колонии внизу.
 // Угрозы приходят с одной стороны: увести прицел в противоположную и дать форсаж, пока идёт отсчёт.
 const DURATION = 120, NEED = 3, LOCK_TIME = 2.6;
 const THREATS = {
   gust:   { name: 'ПОРЫВ ВЕТРА', time: 4, hull: 7, fuel: 0, lock: 0.7, shake: 1.2 },
   ice:    { name: 'СКОПЛЕНИЕ ЛЬДА', time: 3, hull: 32, fuel: 0, lock: 0.3, shake: 1.6 },
-  bubble: { name: 'ТЕРМАЛЬНЫЙ ПУЗЫРЬ', time: 3.5, hull: 11, fuel: 7, lock: 0.3, shake: 0.8 },
+  bubble: { name: 'ТЕРМАЛЬНЫЙ ПУЗЫРЬ', time: 3.5, hull: 11, fuel: 5, lock: 0.3, shake: 0.8 },
 };
 const SIDES = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] };
 // переговоры с шахтой «Горн-12» (по тексту главы) — по времени
@@ -70,7 +71,7 @@ export default {
       aim: { x: 0, y: 0 }, beacon: { x: 0.25, y: 0.2, vx: 0, vy: 0 },
       stick: { x: 0, y: 0 }, push: { x: 0, y: 0 }, warp: 0, threat: null, nextThreat: 9, red: 0, dark: 0, shake: 0, over: false,
       flakes: Array.from({ length: 700 }, () => ({ x: Math.random() * 2 - 1, y: Math.random() * 2 - 1, z: Math.random() })),
-      bolt: 0,
+      bolt: 0, boltPath: null, frost: 0, cracks: [], sparks: [], drops: [], plasma: null, heat: 0,
     };
     const hum = storm.start();
     const radio = $('.ld-radio');
@@ -120,8 +121,8 @@ export default {
     const pull = (el) => { el.classList.add('down'); storm.lever(); setTimeout(() => el.classList.remove('down'), 420); };
     $('[data-l="boost"]').addEventListener('pointerdown', (e) => {
       e.preventDefault(); pull(e.currentTarget);
-      if (st.fuel < 12) { storm.alarm(); say(...CREW.fuel); return; }
-      st.fuel -= 12 + Math.round(Math.random()); st.boost = 1.6; st.warp = 1; st.lock *= 0.55; st.alt -= 260; storm.boost(); if (!st.threat) say(...CREW.boost);
+      if (st.fuel < 7) { storm.alarm(); say(...CREW.fuel); return; }
+      st.fuel -= 7 + Math.round(Math.random()); st.boost = 1.6; st.warp = 1; st.heat = 1; st.frost = Math.max(0, st.frost - 0.35); st.lock *= 0.55; st.alt -= 260; storm.boost(); if (!st.threat) say(...CREW.boost);
       const T = st.threat;
       if (T && !T.dodged) {
         // уклонение: прицел в половине экрана, противоположной угрозе
@@ -156,9 +157,37 @@ export default {
       if (T.dodged) return;
       st.hull -= D.hull; st.fuel = Math.max(0, st.fuel - D.fuel); st.lock *= D.lock;
       st.shake = D.shake; st.red = 1; say(...CREW.hit[T.type]);
+      crack(); sparks(T.type === 'ice' ? 60 : 30);
+      if (T.type === 'ice') st.frost = Math.min(1, st.frost + 0.35);
       if (T.type === 'gust') { storm.gust(); const [sx, sy] = SIDES[T.side]; st.push.x = -sx * 1.8; st.push.y = -sy * 1.4; }
       if (T.type === 'ice') storm.ice();
       if (T.type === 'bubble') { storm.freeze(); st.dark = 1; }
+    }
+
+
+    // ---------- эффекты ----------
+    // молния: ломаная сверху вниз с ответвлениями (в долях экрана)
+    function lightning() {
+      const pts = [[0.15 + Math.random() * 0.7, -0.05]], branches = [];
+      while (pts[pts.length - 1][1] < 0.55) {
+        const [x, y] = pts[pts.length - 1], n = [x + (Math.random() - 0.5) * 0.08, y + 0.03 + Math.random() * 0.05];
+        pts.push(n);
+        if (Math.random() < 0.18) { const b = [n]; for (let k = 0; k < 4; k++) { const [bx, by] = b[b.length - 1]; b.push([bx + (Math.random() - 0.3) * 0.07, by + 0.03 + Math.random() * 0.03]); } branches.push(b); }
+      }
+      return [pts, ...branches];
+    }
+    // трещина на стекле фонаря — от края к центру, с ветками
+    function crack() {
+      if (st.cracks.length > 7) return;
+      const side = Math.floor(Math.random() * 4), t = 0.15 + Math.random() * 0.7;
+      let [x, y] = [[t, 0.02], [0.98, t], [t, 0.84], [0.02, t]][side];
+      const path = [[x, y]], ang = Math.atan2(0.45 - y, 0.5 - x);
+      for (let k = 0; k < 7; k++) { x += Math.cos(ang + (Math.random() - 0.5) * 1.2) * 0.035; y += Math.sin(ang + (Math.random() - 0.5) * 1.2) * 0.035; path.push([x, y]); }
+      st.cracks.push(path);
+    }
+    function sparks(n) {
+      const w = cv.clientWidth, h = cv.clientHeight;
+      for (let i = 0; i < n; i++) st.sparks.push({ x: w * (0.1 + Math.random() * 0.8), y: h * 0.86, vx: (Math.random() - 0.5) * 500, vy: -250 - Math.random() * 450, life: 0.5 + Math.random() * 0.7 });
     }
 
     // ---------- цикл ----------
@@ -197,7 +226,16 @@ export default {
       st.alt = Math.max(0, st.alt - dt * (9400 / DURATION));
       st.red = Math.max(st.threat ? 0.5 + 0.3 * Math.sin(st.t * 10) : 0, st.red - dt * 0.8);
       st.dark = Math.max(0, st.dark - dt * 0.35);
-      st.bolt = Math.max(0, st.bolt - dt * 4); if (Math.random() < dt * 0.15) st.bolt = 1;
+      st.bolt = Math.max(0, st.bolt - dt * 2.5);
+      if (Math.random() < dt * 0.18) { st.bolt = 1; st.boltPath = lightning(); thunder(0.3 + Math.random() * 1.2); }
+      // иней нарастает на фонаре, форсаж его сгоняет; выбросы плазмы из-под льда
+      st.frost = Math.min(1, st.frost + dt * 0.012); st.heat = Math.max(0, st.heat - dt * 0.5);
+      if (!st.plasma && Math.random() < dt * 0.06) { st.plasma = { t: 0, x: Math.random(), dir: Math.random() < 0.5 ? -1 : 1 }; st.shake = Math.max(st.shake, 0.5); storm.gust(); }
+      if (st.plasma && (st.plasma.t += dt) > 1.4) st.plasma = null;
+      if (Math.random() < dt * 3 && st.drops.length < 30) st.drops.push({ x: Math.random(), y: Math.random() * 0.8, v: 0.05 + Math.random() * 0.1, l: 0.02 + Math.random() * 0.05 });
+      st.drops = st.drops.filter((d) => (d.x += (d.v + st.push.x * 0.1) * dt * (1 + st.boost * 3)) < 1.05 && d.x > -0.05);
+      st.sparks = st.sparks.filter((p) => (p.life -= dt) > 0);
+      for (const p of st.sparks) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 900 * dt; }
       // угрозы
       if (!st.threat && st.t > st.nextThreat && st.t < DURATION - 4) { spawnThreat(); st.nextThreat = st.t + 9 + Math.random() * 7; }
       if (st.threat) {
@@ -261,11 +299,46 @@ export default {
       const sky = g.createLinearGradient(0, 0, 0, h);
       sky.addColorStop(0, '#07090d'); sky.addColorStop(0.55, `rgb(${24 + k * 20},${28 + k * 18},${36 + k * 10})`); sky.addColorStop(1, `rgb(${50 + k * 40},${54 + k * 40},${60 + k * 30})`);
       g.fillStyle = sky; g.fillRect(-60, -60, w + 120, h + 120);
-      if (st.bolt > 0) { g.fillStyle = `rgba(200,220,255,${st.bolt * 0.4})`; g.fillRect(-60, -60, w + 120, h + 120); }
+      if (st.bolt > 0) {
+        g.fillStyle = `rgba(200,220,255,${st.bolt * 0.35})`; g.fillRect(-60, -60, w + 120, h + 120);
+        if (st.boltPath && st.bolt > 0.2) {
+          g.save(); g.shadowColor = '#bfe0ff'; g.shadowBlur = 18; g.lineJoin = 'round';
+          st.boltPath.forEach((pts, bi) => {
+            g.strokeStyle = `rgba(235,245,255,${st.bolt})`; g.lineWidth = bi ? 1.5 : 3.5;
+            g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x * w, y * h) : g.moveTo(x * w, y * h))); g.stroke();
+          });
+          g.restore();
+        }
+      }
       const gy = h * (0.75 - k * 0.35);
       g.fillStyle = `rgba(150,170,190,${0.2 + k * 0.4})`; g.fillRect(-60, gy, w + 120, h);
       g.strokeStyle = `rgba(40,50,60,${0.3 + k * 0.4})`; g.lineWidth = 1 + k * 2;
       for (let i = 0; i < 12; i++) { const x = ((i * 137) % w); g.beginPath(); g.moveTo(x, gy); g.lineTo(x + (i % 2 ? 1 : -1) * w * 0.3, h); g.stroke(); }
+      // огни колонии и прожекторы проступают у земли
+      if (k > 0.45) {
+        const a = Math.min(1, (k - 0.45) * 3);
+        for (let i = 0; i < 14; i++) {
+          const lx = ((i * 211) % 1000) / 1000 * w, ly = gy + 8 + ((i * 53) % 40) * (0.5 + k), on = Math.sin(st.t * 2 + i * 1.7) > -0.6;
+          if (!on) continue; g.fillStyle = `rgba(255,${170 + (i % 3) * 25},90,${a * 0.8})`; g.fillRect(lx, ly, 3, 3);
+        }
+        g.save(); g.globalCompositeOperation = 'lighter';
+        for (let i = 0; i < 2; i++) {
+          const bx = w * (0.3 + i * 0.4), ang = -Math.PI / 2 + Math.sin(st.t * 0.6 + i * 2) * 0.5;
+          const lg = g.createLinearGradient(bx, gy + 30, bx + Math.cos(ang) * h, gy + 30 + Math.sin(ang) * h);
+          lg.addColorStop(0, `rgba(255,230,180,${0.22 * a})`); lg.addColorStop(1, 'rgba(255,230,180,0)');
+          g.fillStyle = lg; g.beginPath(); g.moveTo(bx - 4, gy + 30); g.lineTo(bx + Math.cos(ang - 0.08) * h, gy + 30 + Math.sin(ang - 0.08) * h); g.lineTo(bx + Math.cos(ang + 0.08) * h, gy + 30 + Math.sin(ang + 0.08) * h); g.lineTo(bx + 4, gy + 30); g.fill();
+        }
+        g.restore();
+      }
+      // выброс плазмы из-под льда: яркий столб снизу, раскаляет теплоотводы
+      if (st.plasma) {
+        const P = st.plasma, e = Math.sin(Math.min(1, P.t / 1.4) * Math.PI), px = P.x * w;
+        g.save(); g.globalCompositeOperation = 'lighter';
+        const pg = g.createLinearGradient(px, h, px + P.dir * w * 0.2, -h * 0.2);
+        pg.addColorStop(0, `rgba(160,230,255,${0.7 * e})`); pg.addColorStop(0.5, `rgba(120,180,255,${0.35 * e})`); pg.addColorStop(1, 'rgba(120,180,255,0)');
+        g.fillStyle = pg; g.beginPath(); g.moveTo(px - 30 * e, h); g.lineTo(px + P.dir * w * 0.2 - 6, -h * 0.2); g.lineTo(px + P.dir * w * 0.2 + 6, -h * 0.2); g.lineTo(px + 30 * e, h); g.fill();
+        g.restore();
+      }
       // сигнал
       const cx = w / 2, cy = h / 2, S = Math.min(w, h) * 0.5;
       const bx = cx + st.beacon.x * S * 1.3, by = cy + st.beacon.y * S, pulse = 0.5 + 0.5 * Math.sin(st.t * 6);
@@ -309,11 +382,48 @@ export default {
         vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, `rgba(0,0,0,${0.85 * st.warp})`);
         g.fillStyle = vg; g.fillRect(0, 0, w, h);
       }
+      // талая вода и ледяная крупа ползут по стеклу
+      g.strokeStyle = 'rgba(200,220,240,.35)'; g.lineWidth = 1.5;
+      for (const d of st.drops) { g.beginPath(); g.moveTo(d.x * w, d.y * h); g.lineTo((d.x - d.l) * w, d.y * h + 2); g.stroke(); }
+      // иней по углам фонаря
+      if (st.frost > 0.02) {
+        for (const [fx, fy] of [[0, 0], [w, 0], [0, h * 0.86], [w, h * 0.86]]) {
+          const fr = g.createRadialGradient(fx, fy, 0, fx, fy, Math.max(w, h) * 0.35 * st.frost);
+          fr.addColorStop(0, `rgba(215,235,250,${0.55 * st.frost})`); fr.addColorStop(0.6, `rgba(190,215,235,${0.25 * st.frost})`); fr.addColorStop(1, 'rgba(190,215,235,0)');
+          g.fillStyle = fr; g.fillRect(0, 0, w, h);
+        }
+        g.strokeStyle = `rgba(235,245,255,${0.35 * st.frost})`; g.lineWidth = 1;
+        for (let i = 0; i < 24; i++) {
+          const corner = i % 4, fx = corner % 2 ? w : 0, fy = corner < 2 ? 0 : h * 0.86, a = (i * 0.61) % (Math.PI / 2), R = (30 + (i * 37) % 90) * st.frost * 2;
+          const dx = (corner % 2 ? -1 : 1) * Math.cos(a) * R, dy = (corner < 2 ? 1 : -1) * Math.sin(a) * R;
+          g.beginPath(); g.moveTo(fx, fy); g.lineTo(fx + dx, fy + dy); g.lineTo(fx + dx * 1.1 + dy * 0.1, fy + dy * 1.1 - dx * 0.1); g.stroke();
+        }
+      }
+      // трещины стекла от ударов
+      if (st.cracks.length) {
+        g.lineJoin = 'round';
+        for (const path of st.cracks) {
+          for (const [lw, col] of [[3, 'rgba(0,0,0,.35)'], [1.2, 'rgba(235,245,255,.75)']]) {
+            g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); path.forEach(([x, y], i) => (i ? g.lineTo(x * w, y * h) : g.moveTo(x * w, y * h))); g.stroke();
+          }
+          const [ex, ey] = path[path.length - 1];
+          g.strokeStyle = 'rgba(235,245,255,.5)'; g.lineWidth = 1;
+          for (let b = 0; b < 3; b++) { g.beginPath(); g.moveTo(ex * w, ey * h); g.lineTo(ex * w + Math.cos(b * 2.1 + ex * 9) * 18, ey * h + Math.sin(b * 2.1 + ey * 9) * 18); g.stroke(); }
+        }
+      }
+      // жар форсажа: края фонаря раскаляются
+      if (st.heat > 0.02) {
+        const hg = g.createRadialGradient(w / 2, h / 2, h * 0.35, w / 2, h / 2, w * 0.75);
+        hg.addColorStop(0, 'rgba(255,90,20,0)'); hg.addColorStop(1, `rgba(255,${90 + Math.random() * 40},20,${0.45 * st.heat})`);
+        g.fillStyle = hg; g.fillRect(0, 0, w, h);
+      }
       // рама фонаря
       g.fillStyle = '#060709';
       g.beginPath(); g.moveTo(0, 0); g.lineTo(w * 0.14, 0); g.lineTo(0, h * 0.35); g.fill();
       g.beginPath(); g.moveTo(w, 0); g.lineTo(w * 0.86, 0); g.lineTo(w, h * 0.35); g.fill();
       g.fillRect(0, h * 0.86, w, h);
+      // искры из пульта при попадании
+      for (const p of st.sparks) { g.fillStyle = `rgba(255,${180 + Math.random() * 60},80,${Math.min(1, p.life * 2)})`; g.fillRect(p.x, p.y, 2.5, 2.5); }
     }
 
     // победа: круглый ангар — лепестки ирисовой диафрагмы расходятся, изнутри льётся свет
