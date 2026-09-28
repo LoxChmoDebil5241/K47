@@ -603,3 +603,19 @@ body.no-fx .post, body.no-fx #reader::before { display: none; }
 .pr-root.war .rw-sides { margin: 3px 0 1px; }
 .pr-root.war .rw-sides button { padding: 5px 3px; }
 .pr-root.war .rw-unit { margin: 2px 0; padding: 2px 5px; }
+.pr-mk.bark { pointer-events: none; }
+.pr-mk.bark i { display: none; }
+.pr-mk.bark span { left: 0; top: -44px; transform: translateX(-50%); max-width: 180px; white-space: normal; text-align: center; padding: 3px 6px; background: rgba(0,0,0,.72); color: #fff; font-size: clamp(5px, 1.4vw, 7px); animation: barkSoft 3.2s ease-out forwards; }
+.pr-mk.b-hit span, .pr-mk.b-lose span, .pr-mk.b-blind span { color: #ff9aa6; }
+.pr-mk.b-win span { color: #9dffb8; }
+@keyframes barkOld { 0% { opacity: 0; margin-top: 6px; } 10%, 80% { opacity: 1; margin-top: 0; } 100% { opacity: 0; margin-top: -8px; } }
+.pr-mk.st-soft span { animation: barkSoft 3.2s ease-out forwards; }
+.pr-mk.st-sharp span { animation: barkSharp 3.2s steps(1) forwards; }
+.pr-mk.st-shake span { animation: barkShake .09s linear infinite, barkFade 3.2s ease-out forwards; }
+.pr-mk.st-cut span { animation: barkShake .07s linear 12; }
+.pr-mk.st-cut b { display: inline-block; font-weight: normal; white-space: pre; animation: barkCrumble 1.3s ease-in forwards; }
+@keyframes barkSoft { 0% { opacity: 0; filter: blur(4px); } 15%, 70% { opacity: 1; filter: blur(0); } 100% { opacity: 0; filter: blur(6px); letter-spacing: .15em; } }
+@keyframes barkSharp { 0% { opacity: 0; } 4%, 90% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes barkShake { 0% { translate: -2px 0; } 25% { translate: 2px 1px; } 50% { translate: -1px -1px; } 75% { translate: 1px 1px; } 100% { translate: 0 0; } }
+@keyframes barkFade { 0% { opacity: 0; } 6%, 80% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes barkCrumble { 0% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translate(var(--dx), 34px) rotate(var(--r)); filter: blur(2px); } }

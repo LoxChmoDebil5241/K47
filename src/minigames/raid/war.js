@@ -47,6 +47,26 @@ export function startWar(ctx) {
   const info = ctx.info;
   const tap = (el, fn) => el.addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); fn(e); });
 
+  // реплики отрядов: всплывают над отрядом, если сектор на экране
+  const barks = [];
+  // стиль: тревожные — дрожат, спокойные — расплываются, уверенные — встают чётко;
+  // dying — пешка погибла: фраза обрывается и рассыпается по буквам
+  const STYLE = { hit: 'shake', lose: 'shake', blind: 'shake', attack: 'shake', retreat: 'shake', wait: 'soft', move: 'soft', scout: 'soft', fortify: 'sharp', win: 'sharp' };
+  function bark(u, kind, dying = false) {
+    if (!u || u.side !== 'us' || u.sec !== W.view || !W.sv || (!dying && Math.random() < 0.15)) return;
+    const list = TXT.barks[kind]; if (!list) return;
+    const sec = W.sectors[u.sec], cells = sec.cells.filter((c) => c.owner && c.owner !== 'us');
+    let text = pick(list).replace('{c}', cellName(sec, (pick(cells) || sec.cells[0]).i));
+    if (dying) text = text.slice(0, Math.max(2, Math.floor(text.length * (0.35 + Math.random() * 0.3)))) + '—';
+    const [x, z] = cellXZ(u.cell);
+    const m = ctx.marker(new THREE.Vector3(x, W.sv.h(x, z) + 0.2, z), `bark b-${kind} st-${dying ? 'cut' : STYLE[kind] || 'soft'}`, text, null, W.sv.group);
+    barks.push(m); sfx.talk(text[0]);
+    if (dying) setTimeout(() => {
+      const sp = m.el.querySelector('span'); sp.textContent = '';
+      [...text].forEach((ch, i) => { const b = document.createElement('b'); b.textContent = ch; b.style.setProperty('--dx', `${(Math.random() - 0.5) * 40}px`); b.style.setProperty('--r', `${(Math.random() - 0.5) * 120}deg`); b.style.animationDelay = `${i * 0.03}s`; sp.appendChild(b); });
+    }, 900);
+    setTimeout(() => { ctx.unmark(m); barks.splice(barks.indexOf(m), 1); }, dying ? 2600 : 3200);
+  }
   function toast(text, cls = '') {
     const p = document.createElement('p'); p.className = cls; p.textContent = text; toastEl.prepend(p);
     while (toastEl.children.length > 4) toastEl.lastChild.remove();
@@ -354,6 +374,7 @@ export function startWar(ctx) {
     const sec = W.sectors[sq.sec];
     sq.ally = side; sq.cd = act === 'scout' ? 8 : 12;
     const say = (t) => toast(`${sq.tag}: ${t}`);
+    bark(sq, act === 'attack' && !sec.cells[picks[0]].scouted && sq.type !== 'recon' ? 'blind' : act);
     if (act === 'fortify') { sq.stance = 'fortify'; storm.lock(); say('закрепились.'); }
     else if (act === 'wait') { sq.stance = 'wait'; say('ожидают.'); }
     else if (act === 'retreat') { sq.stance = 'wait'; sq.retreatT = 20; moveUnit(sec, sq, picks[0]); snd.fall(); say(`отходят на ${cellName(sec, picks[0])}.`); }
@@ -415,6 +436,8 @@ export function startWar(ctx) {
       }
     }
     W.lost += aDead.filter(() => lead.side === 'us').length + dDead.filter(() => defs.some((u) => u.side === 'us')).length;
+    for (const u of defs) if (u.side === 'us') bark(u, 'hit', dDead.length > 0 && Math.random() < 0.6);
+    for (const u of att) if (u.side === 'us') { const d = aDead.length > 0; setTimeout(() => bark(u, r.win ? 'win' : 'lose', d && Math.random() < 0.6), 2600); }
     prune(sec);
     const res = { r, A, D, aDead, dDead, defs, ownerBefore, owner: tc.owner, close };
     if (sec.idx === W.view && W.sv) playFight(sec, att, fromCells, to, attIds, defIds, [...aDead, ...dDead].map((p) => p.id), close);
@@ -864,6 +887,10 @@ export function startWar(ctx) {
       spawnTick(s, dt);
       s.weatherT -= dt;
       if (s.weatherT <= 0) { s.weatherT = 200 + Math.random() * 160; s.weather = pick(WEATHER_KEYS.filter((k) => k !== s.weather)); toast(`СЕКТОР ${s.letter}: погода — ${WEATHER[s.weather].name}.`); }
+    }
+    if (W.sv && Math.random() < dt * 0.08) {
+      const idle = W.sectors[W.view].cells.flatMap((c) => c.units).filter((u) => u.side === 'us');
+      const u = pick(idle); if (u) bark(u, u.stance === 'fortify' ? 'fortify' : 'wait');
     }
     contractsTick(dt);
     if (!W.pending && !W.queue && W.t > W.nextReq && W.contracts.length < 3) {
