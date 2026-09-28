@@ -337,8 +337,13 @@ terminal.onDeny = () => sfx.denied();
 terminal.onGrant = () => sfx.confirm();
 terminal.onExit = () => go('outside', 'back');
 // «затягивает в экран»: камера наезжает в стекло, экран вспыхивает, открывается глава
-const reader = setupReader(book, { onClose: () => { pull.target = 0; sfx.whoosh(0.8); ui.hidden = false; } });
-const pull = { k: 0, target: 0 };
+const reader = setupReader(book, { onClose: () => { pull.target = pull.rest; sfx.whoosh(0.8); ui.hidden = false; } });
+const pull = { k: 0, target: 0, rest: 0 };
+// выбор файла — экран слегка приближается; назад к списку — отъезжает
+terminal.onZoom = (z) => { pull.rest = z; pull.target = z; if (z) sfx.whoosh(0.5); };
+terminal.onTap = () => sfx.click();
+terminal.onWin = () => { sfx.confirm(); sfx.enter(); };
+terminal.onLose = () => sfx.denied();
 terminal.onRead = (ch) => {
   pull.target = 1; sfx.whoosh(1.2); sfx.enter();
   setTimeout(() => { reader.open(ch); ui.hidden = true; }, 900);
@@ -427,6 +432,7 @@ window.__k47 = {
   get view() { return view; },
   term: () => terminal.state,
   tapTerm: (u, v) => terminal.tap(u, v),
+  termButtons: () => terminal.buttons.map((b) => [b.x + b.w / 2, b.y + b.h / 2]),
   get moving() { return move.t < 1; },
 };
 
