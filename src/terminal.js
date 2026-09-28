@@ -192,6 +192,8 @@ export class Terminal {
       x += cw + (i % 4 === 3 ? group : gap);
     }
     if (this.deny > 0) this.text('ОТКАЗАНО', W / 2, 246, { align: 'center', size: 18, color: '#ff2020' });
+    // временная кнопка для тестов: вход без кода
+    this.button('ВХОД БЕЗ ПАРОЛЯ', W - PAD - 260, PAD + 34, 260, 40, () => { this.onGrant?.(); this.go('warn'); }, { size: 11 });
     const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '<', '0', 'OK'];
     const kw = 170, kh = 84, kx = (W - kw * 3 - 24) / 2, ky = 292;
     keys.forEach((k, i) => {

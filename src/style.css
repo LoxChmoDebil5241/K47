@@ -420,3 +420,57 @@ body.no-fx .post, body.no-fx #reader::before { display: none; }
   background: radial-gradient(circle at 35% 30%, #6a7078, #2a2e33 70%); box-shadow: 0 4px 10px #000, inset 0 0 0 3px #111; }
 .ld-stick span { font: clamp(7px, 1.8vw, 9px)/1 var(--f-pixel); color: #9aa3ab; }
 .ld-end .ld-panel, .ld-end .ld-stick, .ld-end .ld-top { opacity: 0; transition: opacity 1s; }
+
+/* ---------- пролог: спектрограмма планеты ---------- */
+.pr-root { position: relative; width: 100%; height: 100%; overflow: hidden; background: #02060a; color: #bfeaff; font-family: var(--f-mono); touch-action: none; }
+.pr-view { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pr-grid { position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(111,216,255,.05) 0 1px, transparent 1px 40px), repeating-linear-gradient(90deg, rgba(111,216,255,.05) 0 1px, transparent 1px 40px),
+  radial-gradient(ellipse at center, transparent 50%, rgba(0,10,20,.8)); }
+.pr-top { position: absolute; top: max(8px, env(safe-area-inset-top)); left: 12px; right: 12px; display: flex; justify-content: space-between; font: clamp(7px, 2vw, 11px)/1.4 var(--f-pixel); color: #6fd8ff; text-shadow: 0 0 8px #0af; }
+.pr-info { position: absolute; left: 12px; top: 40px; max-width: min(360px, 60vw); padding: 10px 12px; background: rgba(4,20,32,.72); box-shadow: inset 0 0 0 1px rgba(111,216,255,.4), 0 0 20px rgba(0,160,255,.15); clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%); }
+.pr-info:empty { display: none; }
+.pr-info b { display: block; font: clamp(7px, 2vw, 10px)/1.5 var(--f-pixel); color: #e8fbff; margin-bottom: 4px; }
+.pr-info p { margin: 2px 0; font-size: clamp(10px, 2.6vw, 13px); color: #9fd8ef; }
+.pr-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 8px; }
+.pr-acts button, .pr-req button { font: clamp(6px, 1.7vw, 8px)/1.2 var(--f-pixel); color: #dff6ff; background: rgba(10,50,70,.8); border: 1px solid #3aa8d8; padding: 8px 4px; cursor: pointer; }
+.pr-acts button:active, .pr-req button:active { background: #0a8ac0; }
+.pr-labels { position: absolute; inset: 0; pointer-events: none; }
+.pr-mk { position: absolute; left: 0; top: 0; pointer-events: auto; border: 0; background: none; padding: 0; cursor: pointer; width: 0; height: 0; }
+.pr-mk.hidden { opacity: 0; pointer-events: none; }
+.pr-mk i { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%; box-shadow: 0 0 0 2px #ff3040, 0 0 14px #ff2030; animation: prPulse 1.2s ease-out infinite; }
+.pr-mk span { position: absolute; left: 14px; top: -7px; white-space: pre; font: clamp(6px, 1.7vw, 8px)/1.4 var(--f-pixel); color: #ffb0b8; text-shadow: 0 0 4px #000; }
+@keyframes prPulse { 0% { transform: scale(.6); opacity: 1; } 100% { transform: scale(1.8); opacity: 0; } }
+.pr-mk.probing i { box-shadow: 0 0 0 2px #fff, 0 0 20px #6fd8ff; animation-duration: .3s; }
+.pr-mk.ok i { box-shadow: 0 0 0 3px #40ff80, 0 0 18px #40ff80; animation: none; }
+.pr-mk.bad i { box-shadow: 0 0 0 2px #555; animation: none; opacity: .5; }
+.pr-mk.site i { box-shadow: 0 0 0 2px #6fd8ff, 0 0 12px #0af; }
+.pr-mk.site span { color: #dff6ff; background: rgba(4,20,32,.7); padding: 3px 5px; }
+.pr-mk.mass i { width: 14px; height: 14px; left: -7px; top: -7px; border-radius: 2px; box-shadow: 0 0 0 2px #6fd8ff; animation: none; }
+.pr-mk.mass.bad i { box-shadow: 0 0 0 2px rgba(255,180,80,var(--h)); background: rgba(255,140,40,calc(var(--h) * .6)); opacity: 1; }
+.pr-mk.mass span { left: -10px; top: 10px; }
+.pr-mk.node i { width: 16px; height: 16px; left: -8px; top: -8px; background: var(--c); box-shadow: 0 0 0 2px rgba(0,0,0,.6), 0 0 14px var(--c); animation: none; }
+.pr-mk.node.act i { outline: 2px dashed #fff; outline-offset: 3px; }
+.pr-mk.node.fort i { box-shadow: 0 0 0 3px #e8fbff, 0 0 14px var(--c); }
+.pr-mk.node.sel span { color: #fff; }
+.pr-mk.node span { color: #cfeaff; }
+.pr-bottom { position: absolute; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(560px, 90vw); }
+.pr-bal { display: flex; align-items: center; gap: 8px; font: clamp(7px, 2vw, 10px)/1 var(--f-pixel); }
+.pr-bal span:first-child { color: #5aa0ff; } .pr-bal span:last-child { color: #ff9a40; }
+.pr-bal div { position: relative; flex: 1; height: 14px; background: linear-gradient(90deg, #1a4aa0, #203040 30%, #1a5a30 40%, #1a5a30 60%, #403020 70%, #c06010); box-shadow: inset 0 0 0 1px #6fd8ff; }
+.pr-bal i { position: absolute; top: -4px; bottom: -4px; width: 4px; margin-left: -2px; background: #fff; box-shadow: 0 0 8px #fff; transition: left .3s; }
+.pr-units { margin: 6px 0 0; text-align: center; font: clamp(6px, 1.6vw, 8px)/1.4 var(--f-pixel); color: #8fcce4; }
+.pr-root.danger .pr-grid { background-color: rgba(120,0,10,.25); }
+.pr-req { position: absolute; right: 12px; top: 40px; width: min(300px, 44vw); padding: 10px; background: rgba(4,20,32,.85); box-shadow: inset 0 0 0 1px #3aa8d8; animation: prIn .4s ease-out; }
+.pr-req.snk { box-shadow: inset 3px 0 0 #5aa0ff, inset 0 0 0 1px #3a6ab8; } .pr-req.nt { box-shadow: inset 3px 0 0 #ff9a40, inset 0 0 0 1px #b86a2a; }
+.pr-req b { font: clamp(7px, 1.8vw, 9px)/1 var(--f-pixel); } .pr-req p { font-size: clamp(10px, 2.6vw, 13px); margin: 6px 0; color: #dff6ff; }
+.pr-req div { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; } .pr-req i { display: block; height: 3px; margin-top: 6px; background: #6fd8ff; }
+@keyframes prIn { from { transform: translateX(40px); opacity: 0; } }
+.pr-float { position: absolute; inset: 0; pointer-events: none; }
+.pr-say { position: absolute; left: 50%; bottom: 18%; transform: translateX(-50%); margin: 0; padding: 6px 10px; white-space: nowrap; font: clamp(8px, 2.2vw, 11px)/1.4 var(--f-pixel); color: #dff6ff; background: rgba(4,20,32,.7); transition: opacity 1s; }
+.pr-say.warn { color: #ffb0b8; } .pr-say.out { opacity: 0; }
+.pr-rise { position: absolute; left: 50%; top: 58%; transform: translate(-50%, 0); margin: 0; white-space: nowrap; font: clamp(10px, 3vw, 18px)/1.4 var(--f-pixel); color: #ffd9a0; text-shadow: 0 0 12px #ff9a40;
+  transition: top 5s ease-in, opacity 5s ease-in, filter 5s ease-in, letter-spacing 5s ease-in; }
+.pr-rise.up { top: 12%; opacity: 0; filter: blur(8px); letter-spacing: .4em; }
+.pr-end { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 14px 18px; font: clamp(9px, 2.6vw, 14px)/1.5 var(--f-pixel); text-align: center; background: rgba(4,20,32,.9); box-shadow: 0 0 0 2px #ff3040; color: #fff; }
+.pr-end.win { box-shadow: 0 0 0 2px #40ff80; }
