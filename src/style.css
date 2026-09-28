@@ -619,3 +619,8 @@ body.no-fx .post, body.no-fx #reader::before { display: none; }
 @keyframes barkShake { 0% { translate: -2px 0; } 25% { translate: 2px 1px; } 50% { translate: -1px -1px; } 75% { translate: 1px 1px; } 100% { translate: 0 0; } }
 @keyframes barkFade { 0% { opacity: 0; } 6%, 80% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes barkCrumble { 0% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translate(var(--dx), 34px) rotate(var(--r)); filter: blur(2px); } }
+/* меню захвата — во всю нижнюю часть экрана */
+.pr-root.war .pr-info { left: 0; right: 0; bottom: 0; width: auto; max-width: none; max-height: 48%; padding: 6px 10px max(6px, env(safe-area-inset-bottom)); clip-path: none; box-sizing: border-box; }
+.pr-root.war .pr-acts.three { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.pr-root.war .pr-acts.three button { padding: 9px 1px; font-size: clamp(5px, 1.35vw, 8px); white-space: normal; }
+.pr-root.war .rw-toast { bottom: calc(48% + 6px); }
