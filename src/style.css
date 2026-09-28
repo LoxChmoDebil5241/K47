@@ -311,3 +311,24 @@ html, body {
 .slot b { display: block; font: 9px/1.5 var(--f-pixel); color: #ff5a6e; }
 .slot .px { min-height: 40px; padding: 8px; font-size: 8px; }
 body.no-fx .post, body.no-fx #reader::before { display: none; }
+
+/* ---------- влёт в терминал ---------- */
+#termFlash { position: fixed; inset: 0; z-index: 900; pointer-events: none; opacity: 0; background: radial-gradient(circle, #fff 0%, #ff3050 60%, #300008 100%); transition: opacity .6s ease-out; }
+#termFlash.on { opacity: 1; transition: opacity .25s ease-in; }
+#reader { animation: termIn .5s ease-out; }
+@keyframes termIn { from { opacity: 0; transform: scale(.97); filter: blur(3px); } }
+#reader.damaged .rd-body p { color: #c89098; }
+.rd-warn { font: clamp(8px, 2.4vw, 11px)/1.6 var(--f-pixel) !important; color: #ff2020 !important; }
+
+/* ---------- испытание на весь экран ---------- */
+.tap-game { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4vh; touch-action: none; cursor: pointer; }
+#reader .tg-title, #reader .tg-count, #reader #reader .tg-time { text-shadow: none; }
+#reader .tg-title { font: clamp(12px, 3.6vw, 20px)/1 var(--f-pixel); color: #ffd0d6; margin: 0; }
+#reader .tg-count { font: clamp(40px, 14vw, 110px)/1 var(--f-pixel); color: #ff3040; text-shadow: 0 0 24px #ff0030; margin: 0; }
+.tg-bar { width: min(80vw, 600px); height: 22px; box-shadow: inset 0 0 0 3px #6a0c1a; padding: 5px; }
+.tg-bar i { display: block; height: 100%; background: #ff3040; }
+#reader .tg-time { font: clamp(10px, 2.6vw, 14px)/1 var(--f-pixel); color: #8a1a24; margin: 0; }
+.tap-game.hit #reader .tg-count { animation: tgHit .15s; }
+@keyframes tgHit { 50% { transform: scale(1.15); } }
+.tap-game.win #reader .tg-count { color: #40ff80; text-shadow: 0 0 24px #20ff60; font-size: clamp(16px, 6vw, 40px); }
+.tap-game.lose #reader .tg-count { color: #ff2020; font-size: clamp(16px, 6vw, 40px); }

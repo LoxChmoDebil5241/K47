@@ -91,7 +91,7 @@ export const KEYS = {
 };
 
 // Где разрешён свободный осмотр пальцем (взгляд остаётся там, куда повернули)
-export const FREE_LOOK = { outside: 1, wall: 1.8, desk: 1, turn: 1, door: 0.6, wallClose: 1.2, deskClose: 0.6 };
+export const FREE_LOOK = { terminal: 0.35, outside: 1, wall: 1.8, desk: 1, turn: 1, door: 0.6, wallClose: 1.2, deskClose: 0.6 };
 
 // Что можно нажать в каждом виде: имя объекта → вид или @действие
 const DESK_ITEMS = { notebook: 'notebook', note: 'note', photo: 'photo', headset: 'headset', radio: 'radio', jar: 'jar', drawer: 'drawer' };

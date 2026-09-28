@@ -57,7 +57,7 @@ export class Terminal {
     this.onRead = null;   // (глава) — открыть полный текст внутри экрана
     this.onExit = null;   // выйти из системы
     this.onZoom = null;   // (0..1) — насколько камера приближается к экрану
-    this.onTap = this.onWin = this.onLose = null;
+    this.onTap = this.onWin = this.onLose = this.onGame = null;
   }
 
   get progress() { return Math.min(save.get('chapter', 0), this.book.length - 1); }
@@ -66,7 +66,7 @@ export class Terminal {
 
   go(state) {
     this.state = state; this.appear = 0; this.dirty = true; this.onPage?.();
-    this.onZoom?.(['file', 'tap', 'restored', 'damaged'].includes(state) ? 0.12 : 0);
+    this.onZoom?.(['file', 'tap', 'restored', 'damaged'].includes(state) ? 0.3 : 0);
   }
 
   // ---------- ввод ----------
@@ -102,7 +102,7 @@ export class Terminal {
   }
 
   // испытание: 5 касаний за 5 секунд
-  startTaps() { this.taps = 0; this.tapT = TAP_TIME; this.go('tap'); }
+  startTaps() { this.onGame?.(this.file); }
   hit() {
     if (this.state !== 'tap' || this.tapT <= 0) return;
     this.taps++; this.flash = 0.12; this.onTap?.(this.taps); this.dirty = true;

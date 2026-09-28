@@ -306,11 +306,6 @@ canvas.addEventListener('pointermove', (e) => {
   drag.x = e.clientX; drag.y = e.clientY;
   drag.moved += Math.abs(dx) + Math.abs(dy);
   const k = 2 / Math.min(innerWidth, innerHeight);
-  if (view === 'terminal') {
-    drag.acc += dy;
-    while (Math.abs(drag.acc) > 36) { terminal.scrollBy(drag.acc > 0 ? -1 : 1); drag.acc -= Math.sign(drag.acc) * 36; }
-    return;
-  }
   if (view === 'jar') { desk.jar.rotate(dx * k * 2, dy * k); return; }
   const f = FREE_LOOK[view];
   if (!f) return;
@@ -337,17 +332,31 @@ terminal.onDeny = () => sfx.denied();
 terminal.onGrant = () => sfx.confirm();
 terminal.onExit = () => go('outside', 'back');
 // «затягивает в экран»: камера наезжает в стекло, экран вспыхивает, открывается глава
-const reader = setupReader(book, { onClose: () => { pull.target = pull.rest; sfx.whoosh(0.8); ui.hidden = false; } });
+// «влёт» в экран: камера ускоряется в стекло, дрожит, вспышка — и полноэкранный режим
+let diving = false;
+const flashEl = document.createElement('div'); flashEl.id = 'termFlash'; document.body.appendChild(flashEl);
+function dive(then) {
+  if (diving) return;
+  diving = true; ui.hidden = true;
+  sfx.whoosh(1.6); sfx.enter();
+  pull.t0 = performance.now(); pull.mode = 'dive';
+  setTimeout(() => flashEl.classList.add('on'), 1450);
+  setTimeout(() => { then(); setTimeout(() => flashEl.classList.remove('on'), 120); }, 1700);
+}
+// выход обратно: отлетаем от экрана к терминалу
+function surface() {
+  pull.mode = null; pull.k = 1; pull.target = pull.rest; diving = false;
+  sfx.whoosh(0.9); ui.hidden = !!pull.rest;
+}
+const reader = setupReader(book, { onClose: surface });
 const pull = { k: 0, target: 0, rest: 0 };
 // выбор файла — экран слегка приближается; назад к списку — отъезжает
-terminal.onZoom = (z) => { pull.rest = z; pull.target = z; if (z) sfx.whoosh(0.5); };
+terminal.onZoom = (z) => { pull.rest = z; pull.target = z; if (z) sfx.whoosh(0.5); if (!diving) ui.hidden = !!z; };
 terminal.onTap = () => sfx.click();
 terminal.onWin = () => { sfx.confirm(); sfx.enter(); };
 terminal.onLose = () => sfx.denied();
-terminal.onRead = (ch) => {
-  pull.target = 1; sfx.whoosh(1.2); sfx.enter();
-  setTimeout(() => { reader.open(ch); ui.hidden = true; }, 900);
-};
+terminal.onRead = (ch) => dive(() => reader.open(ch));
+terminal.onGame = (ch) => dive(() => reader.game(ch, (win) => terminal.finish(win)));
 
 // ---------- атмосфера ----------
 let neonLevel = 1, neonTarget = 1, nextFlicker = 6, nextThud = 30;
@@ -397,7 +406,7 @@ function frame() {
   lookE.set(-smoothLook.y, -smoothLook.x, 0); lookQ.setFromEuler(lookE);
   // темнота: голова отвёрнута почти до упора туда, где нет света
   const fl = FREE_LOOK[view];
-  const ok = game.started && !game.paused && !dread.dying && move.t >= 1 && !!fl;
+  const ok = game.started && !game.paused && !dread.dying && move.t >= 1 && !!fl && view !== 'terminal' && !diving;
   // у терминала — только взгляд влево, там проступает код; в остальных местах — страх темноты
   const atTerm = view === 'outside';
   const dark = ok && (atTerm ? smoothLook.x < -0.3 : Math.abs(smoothLook.x) > 0.3 * fl || smoothLook.y > 0.3 * fl);
@@ -408,9 +417,14 @@ function frame() {
   camera.quaternion.copy(baseQ).multiply(lookQ);
   dread.applyCamera(camera);
   // наезд в экран терминала
-  pull.k += (pull.target - pull.k) * Math.min(1, dt * 3);
+  if (pull.mode === 'dive') {
+    // ускорение в экран (ease-in) с дрожью
+    const x = Math.min(1, (performance.now() - pull.t0) / 1700);
+    pull.k = pull.rest + (1 - pull.rest) * x * x * x;
+    camera.position.x += (Math.random() - 0.5) * 0.004 * x; camera.position.y += (Math.random() - 0.5) * 0.004 * x;
+  } else pull.k += (pull.target - pull.k) * Math.min(1, dt * 3);
   if (pull.k > 0.001) {
-    camera.translateZ(-pull.k * 0.22);
+    camera.translateZ(-pull.k * 0.3);
     camera.fov = baseFov * (1 - pull.k * 0.5); camera.updateProjectionMatrix();
   } else if (camera.fov !== baseFov) { camera.fov = baseFov; camera.updateProjectionMatrix(); }
   inspectLight.position.copy(camera.position).add(tmpV.set(0, 0.08, 0));
