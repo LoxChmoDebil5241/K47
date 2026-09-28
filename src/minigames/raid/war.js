@@ -136,7 +136,7 @@ export function startWar(ctx) {
   function overview() {
     closeSector(); W.view = -1; W.sel = null; W.pick = null;
     ctx.clearMarkers(); ctx.planet(true); ctx.flash();
-    orb.locked = true;
+    orb.locked = true; orb.pan = 0;
     ctx.setOrbit({ target: new THREE.Vector3(0, -0.28, 0), yaw: 0, pitch: 0, dist: 3.7, min: 3.6, max: 3.6, pmin: -1, pmax: 1 });
     ctx.snap();
     back.hidden = true;
@@ -163,7 +163,7 @@ export function startWar(ctx) {
     const sec = W.sectors[i];
     ctx.clearMarkers(); ctx.planet(false); ctx.flash();
     W.sv = buildSectorView(sec); scene.add(W.sv.group); W.sv.group.add(tracers);
-    orb.locked = false;
+    orb.locked = false; orb.pan = 5.5; // свободная камера над картой
     // карта смещена вправо — слева панель отряда
     ctx.setOrbit({ target: new THREE.Vector3(0, 0, 0.6), yaw: 0, pitch: 1.05, dist: 12.5, min: 1.2, max: 18, pmin: 0.3, pmax: 1.45 });
     ctx.snap();

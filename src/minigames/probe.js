@@ -203,15 +203,33 @@ export default {
     // ---------- орбитальная камера: палец/мышь — вращать, щипок/колесо — приближать ----------
     const orb = { target: new THREE.Vector3(), look: new THREE.Vector3(), yaw: 0, pitch: 0.25, dist: 4.2, min: 1.8, max: 7, pmin: -1.35, pmax: 1.35 };
     function setOrbit(o) { Object.assign(orb, o); if (o.target) orb.target = o.target.clone(); }
-    const pts = new Map(); let pinch = 0;
-    root.addEventListener('pointerdown', (e) => { if (e.target.closest('button')) return; pts.set(e.pointerId, [e.clientX, e.clientY]); root.setPointerCapture?.(e.pointerId); pinch = 0; });
+    // orb.pan (карта сектора): один палец/ЛКМ — двигать камеру по карте; два пальца — щипок + поворот + наклон; ПКМ — поворот
+    const pts = new Map(); let pinch = 0, twist = null, midY = null, btn = 0;
+    root.addEventListener('pointerdown', (e) => { if (e.target.closest('button')) return; pts.set(e.pointerId, [e.clientX, e.clientY]); btn = e.button; root.setPointerCapture?.(e.pointerId); pinch = 0; twist = midY = null; });
+    root.addEventListener('contextmenu', (e) => e.preventDefault());
+    const rotate = (dx, dy) => { orb.yaw -= dx * 0.006; orb.pitch = Math.max(orb.pmin, Math.min(orb.pmax, orb.pitch + dy * 0.006)); };
     root.addEventListener('pointermove', (e) => {
       const p = pts.get(e.pointerId); if (!p || focus || orb.locked) return;
-      if (pts.size === 1) { orb.yaw -= (e.clientX - p[0]) * 0.006; orb.pitch = Math.max(orb.pmin, Math.min(orb.pmax, orb.pitch + (e.clientY - p[1]) * 0.006)); }
+      const dx = e.clientX - p[0], dy = e.clientY - p[1];
+      if (pts.size === 1) {
+        if (orb.pan && btn !== 2 && !e.shiftKey) {
+          const k = orb.dist * 0.0022, c = Math.cos(orb.yaw), s = Math.sin(orb.yaw);
+          orb.target.x -= (dx * c + dy * s) * k; orb.target.z -= (-dx * s + dy * c) * k;
+          const L = orb.pan; orb.target.x = Math.max(-L, Math.min(L, orb.target.x)); orb.target.z = Math.max(-L, Math.min(L, orb.target.z));
+        } else rotate(dx, dy);
+      }
       p[0] = e.clientX; p[1] = e.clientY;
-      if (pts.size === 2) { const [a, b] = [...pts.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) zoom(pinch / d); pinch = d; }
+      if (pts.size === 2) {
+        const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+        if (pinch) zoom(pinch / d); pinch = d;
+        if (orb.pan) {
+          const ang = Math.atan2(b[1] - a[1], b[0] - a[0]), my = (a[1] + b[1]) / 2;
+          if (twist != null) { let da = ang - twist; if (da > Math.PI) da -= 2 * Math.PI; if (da < -Math.PI) da += 2 * Math.PI; orb.yaw += da; rotate(0, (my - midY) * 0.8); }
+          twist = ang; midY = my;
+        }
+      }
     });
-    const up = (e) => { pts.delete(e.pointerId); pinch = 0; };
+    const up = (e) => { pts.delete(e.pointerId); pinch = 0; twist = midY = null; };
     root.addEventListener('pointerup', up); root.addEventListener('pointercancel', up);
     root.addEventListener('wheel', (e) => { e.preventDefault(); zoom(e.deltaY > 0 ? 1.1 : 0.9); }, { passive: false });
     function zoom(k) { if (orb.locked) return; orb.dist = Math.max(orb.min, Math.min(orb.max, orb.dist * k)); }
