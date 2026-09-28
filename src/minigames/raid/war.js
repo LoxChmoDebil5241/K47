@@ -6,13 +6,13 @@ import {
   newSquad, hostile, isClose, squadBE, resolve, casualties, fmtBE, fmtMod,
 } from './rules.js';
 import { makePawn, pawnIcon } from './pawns.js';
-import { SECTORS, BASE, makeSector, buildSectorView, cellXZ, nbrs, dist, N } from './sector.js';
+import { SECTORS, BASE, makeSector, buildSectorView, cellXZ, nbrs, dist, N, CELL } from './sector.js';
 
 // Захват планеты (пролог, часть 2). Мы — третья сторона: исполняем запросы НТ и СНК своими рейдерами
 // и держим их влияние в равновесии. 4 точки на планете → карта сектора 5×5 → отряды, действия, бои.
 const RESERVE = 25, GREEN = 0.25, RED = 0.5, RED_TIME = 60;
 const OTHER = { nt: 'snk', snk: 'nt' };
-const KIND = { free: 'СВОБОДЕН', nt: 'ЗАНЯТ НТ', snk: 'ЗАНЯТ СНК', unk: 'НЕИЗВЕСТНЫЙ ПРОТИВНИК' };
+const KIND = { free: 'СВОБОДЕН', nt: 'ЗАНЯТ НТ', snk: 'ЗАНЯТ СНК', unk: 'НЕИЗВЕСТНЫЕ' };
 const BLD = { tower: 'В', mine: 'Ш', post: 'П' };
 const DUR = { scout: 200, capture: 240, reinforce: 100, transit: 150, clear: 240 };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -62,11 +62,27 @@ export function startWar(ctx) {
   tracers.frustumCulled = false;
   let tracerList = [];
   const beams = [];
-  const SLOT = [[0.3, 0.3], [-0.36, 0.34], [0.34, -0.3], [-0.02, 0.0], [-0.3, -0.05], [0.05, 0.55]];
-  function slotPos(c, k, j) {
-    const [cx, cz] = cellXZ(c.i), [sx, sz] = SLOT[k % SLOT.length];
-    return [cx + sx + ((j % 3) - 1) * 0.2, cz + sz + Math.floor(j / 3) * 0.2 - 0.14];
+  // один отряд в клетке: пешки строем 3 в ряд (колонна — чужая, едет рядом)
+  // строй: джаггернауты впереди отряда, штурмовики линиями по 2–3 за ними, разведчики россыпью по клетке
+  function slotPos(c, k, j, u) {
+    const [cx, cz] = cellXZ(c.i), p = u.pawns[j], s = CELL * 0.2, off = k * 0.08;
+    const idx = u.pawns.filter((q, n) => n < j && q.size === p.size).length;
+    if (p.size === 'H') { const nH = u.pawns.filter((q) => q.size === 'H').length; return [cx + (idx - (nH - 1) / 2) * s * 1.3 + off, cz + CELL * 0.34]; }
+    if (p.size === 'L') { const r = (p.id * 9301 + 49297) % 233280 / 233280, r2 = (p.id * 4096 + 150889) % 714025 / 714025; return [cx + (r - 0.5) * CELL * 0.85 + off, cz + (r2 - 0.5) * CELL * 0.85]; }
+    const row = Math.floor(idx / 3), col = idx % 3;
+    return [cx + (col - 1) * s + (row % 2) * s * 0.5 + off, cz + CELL * 0.12 - row * s];
   }
+  // свободная клетка для нашего отряда рядом с i (без чужих и без наших)
+  function freeNear(sec, i, side) {
+    const me = { side: 'us', ally: side }, seen = new Set([i]), q = [i];
+    while (q.length) {
+      const k = q.shift(), c = sec.cells[k];
+      if (!c.units.length || (!c.units.some((u) => u.side === 'us') && !c.units.some((u) => hostile(me, u)))) return k;
+      for (const n of nbrs(k)) if (!seen.has(n)) { seen.add(n); q.push(n); }
+    }
+    return i;
+  }
+  const hasOurs = (c, sq) => c.units.some((u) => u.side === 'us' && u !== sq);
   const visibleUnits = (c) => c.units.filter((u) => u.side === 'us' || c.scouted);
   function sync(snap = false) {
     if (W.view < 0 || !W.sv) return;
@@ -77,7 +93,7 @@ export function startWar(ctx) {
         u.pawns.forEach((p, j) => {
           seen.add(p.id);
           let m = meshes.get(p.id);
-          const [x, z] = slotPos(c, k, j), y = W.sv.h(x, z);
+          const [x, z] = slotPos(c, k, j, u), y = W.sv.h(x, z);
           if (!m) {
             const g = makePawn(p, u.side); W.sv.group.add(g);
             m = { g, target: new THREE.Vector3(), dying: 0 }; meshes.set(p.id, m);
@@ -101,7 +117,7 @@ export function startWar(ctx) {
     closeSector(); W.view = -1; W.sel = null; W.pick = null;
     ctx.clearMarkers(); ctx.planet(true); ctx.flash();
     orb.locked = true;
-    ctx.setOrbit({ target: new THREE.Vector3(-0.4, -0.02, 0), yaw: 0, pitch: 0, dist: 2.55, min: 2.55, max: 2.55, pmin: -1, pmax: 1 });
+    ctx.setOrbit({ target: new THREE.Vector3(0, -0.28, 0), yaw: 0, pitch: 0, dist: 3.7, min: 3.6, max: 3.6, pmin: -1, pmax: 1 });
     ctx.snap();
     back.hidden = true;
     ctx.stage('ЭТАП 4 · ЗАХВАТ · ВЫБЕРИТЕ СЕКТОР');
@@ -129,7 +145,7 @@ export function startWar(ctx) {
     W.sv = buildSectorView(sec); scene.add(W.sv.group); W.sv.group.add(tracers);
     orb.locked = false;
     // карта смещена вправо — слева панель отряда
-    ctx.setOrbit({ target: new THREE.Vector3(-0.9, 0, 0.7), yaw: 0.08, pitch: 0.92, dist: 9.8, min: 2.2, max: 15, pmin: 0.3, pmax: 1.45 });
+    ctx.setOrbit({ target: new THREE.Vector3(0, 0, 0.6), yaw: 0, pitch: 1.05, dist: 12.5, min: 1.2, max: 18, pmin: 0.3, pmax: 1.45 });
     ctx.snap();
     back.hidden = false;
     cellMarkers = sec.cells.map((c) => { const [x, z] = cellXZ(c.i); return ctx.marker(new THREE.Vector3(x, W.sv.h(x, z) + 0.06, z), 'cell', '', () => tapCell(c.i), W.sv.group); });
@@ -167,13 +183,15 @@ export function startWar(ctx) {
       if (W.pick && validPick(i)) m.el.classList.add('can');
       if (W.pick?.picks.includes(i)) m.el.classList.add('picked');
       if (reqCells.has(i)) m.el.classList.add('req');
-      m.el.querySelector('span').textContent = `${cellName(sec, i)}${c.building ? ' ' + BLD[c.building] : ''}${c.scouted ? '' : ' ?'}`;
+      const show = c.building || c.base || reqCells.has(i) || m.el.classList.contains('can');
+      if (!show) m.el.classList.add('plain');
+      m.el.querySelector('span').textContent = show ? `${cellName(sec, i)}${c.building ? ' ' + BLD[c.building] : ''}` : '';
     });
     chips.forEach((m) => ctx.unmark(m)); chips = [];
     sec.cells.forEach((c) => {
       c.units.filter((u) => u.side === 'us').forEach((u, k) => {
         const [x, z] = cellXZ(c.i);
-        const m = ctx.marker(new THREE.Vector3(x, W.sv.h(x, z) + 0.5, z), `chip a-${u.ally}${W.sel === u ? ' sel' : ''}${u.cd > 0 ? ' cd' : ''}`,
+        const m = ctx.marker(new THREE.Vector3(x, W.sv.h(x, z) + 0.12, z), `chip a-${u.ally}${W.sel === u ? ' sel' : ''}${u.cd > 0 ? ' cd' : ''}`,
           `${u.tag} ·${u.pawns.length}${u.stance === 'fortify' ? ' ▣' : ''}`, () => { if (!W.modal && !W.pick) selectSquad(u); }, W.sv.group);
         m.el.style.setProperty('--k', k); chips.push(m);
       });
@@ -184,7 +202,7 @@ export function startWar(ctx) {
       W.sectors.forEach((s, i) => {
         const n = sectorCount(s), ours = s.cells.reduce((a, c) => a + c.units.filter((u) => u.side === 'us').length, 0);
         const m = sMarkers[i]; if (!m) return;
-        m.el.querySelector('span').textContent = `${s.letter} · ${KIND[s.kind]}\nНТ ${n.nt} СНК ${n.snk} ?? ${n.unk}\n${WEATHER[s.weather].name}${ours ? ` · НАШИХ ${ours}` : ''}`;
+        m.el.querySelector('span').textContent = `${s.letter} · ${KIND[s.kind]}\n${WEATHER[s.weather].name}${ours ? ` · НАШИХ ${ours}` : ''}`;
       });
       if (!W.modal) overviewInfo();
     } else {
@@ -260,14 +278,14 @@ export function startWar(ctx) {
       return i !== from && i !== a && nbrs(a).includes(i);
     }
     if (P.act === 'attack') {
-      if (!nbrs(from).includes(i)) return false;
+      if (!nbrs(from).includes(i) || hasOurs(c, P.sq)) return false;
       if (!c.scouted) return true;
       const owned = c.owner && c.owner !== 'us' && hostile(withAlly(P.sq, P.side), { side: c.owner, ally: c.owner });
       return knownHostiles(c, P.sq, P.side).length > 0 || owned;
     }
-    if (P.act === 'retreat') return nbrs(from).includes(i) && c.scouted && !knownHostiles(c, P.sq, P.side).length;
+    if (P.act === 'retreat') return nbrs(from).includes(i) && c.scouted && !hasOurs(c, P.sq) && !knownHostiles(c, P.sq, P.side).length;
     if (P.act === 'move') {
-      if (i === from || dist(from, i) > 2 || !c.scouted || knownHostiles(c, P.sq, P.side).length) return false;
+      if (i === from || dist(from, i) > 2 || !c.scouted || hasOurs(c, P.sq) || knownHostiles(c, P.sq, P.side).length) return false;
       return dist(from, i) === 1 || nbrs(from).some((m) => nbrs(m).includes(i) && sec.cells[m].scouted && !knownHostiles(sec.cells[m], P.sq, P.side).length);
     }
     return false;
@@ -632,16 +650,15 @@ export function startWar(ctx) {
     let n = 0;
     for (const [type, k] of Object.entries(cnt)) {
       for (let i = 0; i < k; i++) {
-        const s = newSquad(type, 'us', req.side); s.sec = sec.idx; s.cell = land; s.dropping = true; s.cd = 3;
-        sec.cells[land].units.push(s); n++;
+        const s = newSquad(type, 'us', req.side), at = freeNear(sec, land, req.side); s.sec = sec.idx; s.cell = at; s.dropping = true; s.cd = 3;
+        sec.cells[at].units.push(s); sec.cells[at].scouted = true; n++;
       }
     }
     W.reserve -= n; W.landed += n;
     sec.cells[land].scouted = true;
     if (n) {
       snd.drop(); toast(`Высадка: ${n} отр. на ${cellName(sec, land)}.`);
-      // камера — к месту высадки, чуть правее панели слева
-      if (sec.idx === W.view) { dropFX(land); const [x, z] = cellXZ(land); ctx.setOrbit({ target: new THREE.Vector3(x - 1.2, 0, z + 0.4), dist: 6.5, pitch: 0.85 }); }
+      if (sec.idx === W.view) dropFX(land);
     }
     W.contracts.push(req);
     if (req.type === 'transit') {
@@ -728,11 +745,12 @@ export function startWar(ctx) {
       const me = { side: f, ally: f }, opts = [];
       for (const c of sec.cells) {
         const mine = c.units.filter((u) => u.side === f && !u.convoy);
-        if (!mine.length || (c.base && mine.length < 2)) continue;
+        if (!mine.length) continue;
         const sq = mine.reduce((a, b) => (b.pawns.length > a.pawns.length ? b : a));
         for (const n of nbrs(c.i)) {
           const tc = sec.cells[n];
           const defs = tc.units.filter((u) => hostile(me, u));
+          if (tc.units.some((u) => u.side === f)) continue;
           const ownerHostile = tc.owner && tc.owner !== f && (tc.owner === 'us' ? f === 'unk' : hostile(me, { side: tc.owner, ally: tc.owner }));
           if (!defs.length && !ownerHostile) continue;
           const close = isClose(tc.building, sec.weather);
@@ -755,8 +773,9 @@ export function startWar(ctx) {
       if (sec.spawn[f] > 0) continue;
       sec.spawn[f] = 80 + Math.random() * 40;
       const count = sec.cells.reduce((a, c) => a + c.units.filter((u) => u.side === f).length, 0);
-      if (count >= 8) continue;
-      const at = f === 'unk' ? pick(sec.cells.filter((c) => c.owner === 'unk') || [])?.i : sec.cells[BASE[f]].owner === f ? BASE[f] : null;
+      if (count >= 30) continue;
+      const own = sec.cells.filter((c) => c.owner === f && !c.units.length && (f === 'unk' || dist(c.i, BASE[f]) < 5));
+      const at = own.length ? pick(own).i : null;
       if (at == null) continue;
       const s = newSquad(pick(['assault', 'hold', 'assault', 'recon']), f, f); s.sec = sec.idx; s.cell = at; if (sec.cells[at].building) s.stance = 'fortify';
       sec.cells[at].units.push(s);

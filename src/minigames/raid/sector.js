@@ -3,8 +3,8 @@ import { noise, fbm, ridge, smooth } from '../noise.js';
 import { newSquad, WEATHER_KEYS } from './rules.js';
 import { makeBuilding } from './pawns.js';
 
-// Сектор: карта 5×5 клеток (как участок при высадке зонда), владения, постройки, гарнизоны.
-export const N = 5, CELL = 1.6, HALF = (N * CELL) / 2;
+// Сектор: карта 20×20 клеток (как участок при высадке зонда), владения, постройки, гарнизоны.
+export const N = 20, CELL = 0.5, HALF = (N * CELL) / 2;
 export const cellXZ = (i) => [-HALF + CELL / 2 + (i % N) * CELL, -HALF + CELL / 2 + Math.floor(i / N) * CELL];
 export const nbrs = (i) => {
   const c = i % N, r = Math.floor(i / N), out = [];
@@ -12,7 +12,7 @@ export const nbrs = (i) => {
   return out;
 };
 export const dist = (a, b) => Math.abs((a % N) - (b % N)) + Math.abs(Math.floor(a / N) - Math.floor(b / N));
-export const BASE = { nt: 10, snk: 14 };
+export const BASE = { nt: 10 * N, snk: 10 * N + N - 1 };
 // 4 точки на планете: одна свободна, одна НТ, одна СНК, одна — неустановленный противник
 export const SECTORS = [
   { letter: 'Д', kind: 'free', lat: 0.3, lon: -0.44 },
@@ -26,23 +26,22 @@ export function makeSector(def, idx) {
   const cells = Array.from({ length: N * N }, (_, i) => ({ i, owner: null, building: null, base: null, units: [], scouted: false }));
   for (const c of cells) {
     const col = c.i % N;
-    if (def.kind === 'nt' && col <= 2) c.owner = 'nt';
-    if (def.kind === 'snk' && col >= 2) c.owner = 'snk';
-    if (def.kind === 'unk' && col >= 1 && col <= 3) c.owner = 'unk';
+    if (def.kind === 'nt' && col < N * 0.55) c.owner = 'nt';
+    if (def.kind === 'snk' && col >= N * 0.45) c.owner = 'snk';
+    if (def.kind === 'unk' && col >= N * 0.25 && col < N * 0.75) c.owner = 'unk';
   }
   for (const [side, i] of Object.entries(BASE)) { cells[i].base = side; cells[i].owner = side; cells[i].building = 'post'; }
   // постройки: случайное количество — вышки, шахты, блок-посты
   const free = cells.filter((c) => !c.base).sort(() => Math.random() - 0.5);
-  const nb = 3 + Math.floor(Math.random() * 4);
+  const nb = 14 + Math.floor(Math.random() * 12);
   for (let k = 0; k < nb; k++) free[k].building = pick(['tower', 'mine', 'post', 'tower', 'mine']);
   // гарнизоны
   for (const c of cells) {
     if (!c.owner) continue;
     const add = (type) => { const s = newSquad(type, c.owner, c.owner); if (c.building || c.base) s.stance = 'fortify'; c.units.push(s); };
-    if (c.base) { add('hold'); add('assault'); }
-    else if (c.owner === 'unk') { if (Math.random() < 0.75) add(Math.random() < 0.5 ? 'assault' : 'hold'); }
-    else if (c.building) add(Math.random() < 0.6 ? 'hold' : 'assault');
-    else if (Math.random() < 0.4) add(Math.random() < 0.7 ? 'assault' : 'recon');
+    // в одной клетке — один отряд
+    if (c.base || c.building) add(c.owner === 'unk' || Math.random() < 0.6 ? 'hold' : 'assault');
+    else if (Math.random() < (c.owner === 'unk' ? 0.12 : 0.06)) add(Math.random() < 0.7 ? 'assault' : 'recon');
   }
   return {
     idx, ...def, cells, seed: 3.7 + idx * 5.3,
@@ -55,7 +54,7 @@ export function makeSector(def, idx) {
 export function buildSectorView(sec) {
   const s = sec.seed, group = new THREE.Group();
   const h = (x, z) => (fbm(x * 0.4 + s, 3.3, z * 0.4 - s, 5) - 0.5) * 0.8 + ridge(x * 0.55 + s * 2, 1, z * 0.55, 4) * 0.3 + (noise(x * 5, 9, z * 5) - 0.5) * 0.04;
-  const SEG = 140, geo = new THREE.PlaneGeometry(8.4, 8.4, SEG, SEG); geo.rotateX(-Math.PI / 2);
+  const SEG = 160, geo = new THREE.PlaneGeometry(N * CELL + 0.4, N * CELL + 0.4, SEG, SEG); geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) pos.setY(i, h(pos.getX(i), pos.getZ(i)));
   geo.computeVertexNormals();
@@ -74,16 +73,16 @@ export function buildSectorView(sec) {
   const lp = [];
   for (let k = 0; k <= N; k++) {
     const c = -HALF + k * CELL;
-    for (let j = 0; j < 40; j++) {
-      const a = -HALF + (j / 40) * N * CELL, b = -HALF + ((j + 1) / 40) * N * CELL;
+    for (let j = 0; j < 80; j++) {
+      const a = -HALF + (j / 80) * N * CELL, b = -HALF + ((j + 1) / 80) * N * CELL;
       lp.push(c, h(c, a) + 0.03, a, c, h(c, b) + 0.03, b, a, h(a, c) + 0.03, c, b, h(b, c) + 0.03, c);
     }
   }
   const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3));
-  group.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x6fd8ff, transparent: true, opacity: 0.45 })));
+  group.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x6fd8ff, transparent: true, opacity: 0.22 })));
   // плитки клеток: туман войны и цвет владельца
   const tiles = sec.cells.map((c) => {
-    const [cx, cz] = cellXZ(c.i), tg = new THREE.PlaneGeometry(CELL - 0.06, CELL - 0.06, 8, 8); tg.rotateX(-Math.PI / 2);
+    const [cx, cz] = cellXZ(c.i), tg = new THREE.PlaneGeometry(CELL - 0.03, CELL - 0.03, 2, 2); tg.rotateX(-Math.PI / 2);
     const tp = tg.attributes.position;
     for (let k = 0; k < tp.count; k++) tp.setY(k, h(cx + tp.getX(k), cz + tp.getZ(k)) + 0.035);
     const m = new THREE.Mesh(tg, new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, opacity: 0 }));
@@ -93,17 +92,18 @@ export function buildSectorView(sec) {
   const props = [];
   for (const c of sec.cells) {
     if (!c.building) continue;
-    const [cx, cz] = cellXZ(c.i), b = makeBuilding(c.building), x = cx - 0.45, z = cz - 0.45;
+    const [cx, cz] = cellXZ(c.i), b = makeBuilding(c.building), x = cx - CELL * 0.22, z = cz - CELL * 0.22;
+    b.scale.setScalar(0.32);
     b.position.set(x, h(x, z), z); group.add(b); props.push(b);
   }
   // голографическая рамка и сканирующая полоса
-  const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(8.4, 2.2, 8.4)), new THREE.LineBasicMaterial({ color: 0x3aa8d8, transparent: true, opacity: 0.3 }));
+  const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(N * CELL + 0.4, 2.2, N * CELL + 0.4)), new THREE.LineBasicMaterial({ color: 0x3aa8d8, transparent: true, opacity: 0.3 }));
   edge.position.y = 0.3; group.add(edge);
-  const sweep = new THREE.Mesh(new THREE.PlaneGeometry(8.4, 2.4), new THREE.MeshBasicMaterial({ color: 0x6fd8ff, transparent: true, opacity: 0.06, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const sweep = new THREE.Mesh(new THREE.PlaneGeometry(N * CELL + 0.4, 2.4), new THREE.MeshBasicMaterial({ color: 0x6fd8ff, transparent: true, opacity: 0.06, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
   sweep.position.y = 0.3; group.add(sweep);
   // позёмка
   const SN = 700, sp = new Float32Array(SN * 3);
-  for (let i = 0; i < SN; i++) sp.set([(Math.random() - 0.5) * 8.4, Math.random() * 1.4 - 0.2, (Math.random() - 0.5) * 8.4], i * 3);
+  for (let i = 0; i < SN; i++) sp.set([(Math.random() - 0.5) * (N * CELL), Math.random() * 1.4 - 0.2, (Math.random() - 0.5) * (N * CELL)], i * 3);
   const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
   const snow = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xeaf6ff, size: 0.025, transparent: true, opacity: 0.6, depthWrite: false }));
   group.add(snow);
@@ -121,8 +121,8 @@ export function buildSectorView(sec) {
       });
     },
     update(dt, t, wind) {
-      sweep.position.z = ((t * 1.1) % 10) - 5;
-      for (let i = 0; i < SN; i++) { let x = sp[i * 3] + dt * wind * (1 + (i % 5) * 0.2); if (x > 4.2) x -= 8.4; sp[i * 3] = x; }
+      sweep.position.z = ((t * 1.1) % (N * CELL + 2)) - HALF - 1;
+      for (let i = 0; i < SN; i++) { let x = sp[i * 3] + dt * wind * (1 + (i % 5) * 0.2); if (x > HALF) x -= N * CELL; sp[i * 3] = x; }
       sg.attributes.position.needsUpdate = true;
       for (const b of props) { if (b.userData.lamp) b.userData.lamp.visible = Math.sin(t * 4) > 0; if (b.userData.wheel) b.userData.wheel.rotation.z += dt * 1.5; }
     },

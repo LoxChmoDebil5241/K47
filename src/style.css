@@ -584,3 +584,22 @@ body.no-fx .post, body.no-fx #reader::before { display: none; }
 .rw-icons img { width: 15px; height: 20px; image-rendering: pixelated; }
 .pr-mk.sector span { left: 0; top: 16px; transform: translateX(-50%); text-align: center; }
 .pr-root.war .pr-info { width: min(300px, 40vw); }
+/* захват на телефоне: меню внизу, равновесие вверху */
+.pr-root.war .pr-info { top: auto; bottom: max(6px, env(safe-area-inset-bottom)); left: 8px; right: auto; width: min(430px, 56vw); max-width: none; max-height: 46%; padding: 6px 9px; }
+.pr-root.war .pr-bottom { top: 24px; bottom: auto; width: min(420px, 52vw); }
+.pr-root.war .pr-units { margin-top: 2px; }
+.pr-root.war .rw-pause, .pr-root.war .rw-back { top: 26px; }
+.pr-root.war .rw-back { right: calc(12px + clamp(80px, 16vw, 110px)); }
+.pr-root.war .rw-jobs { top: 62px; }
+.pr-root.war .rw-toast { left: auto; right: 12px; transform: none; bottom: 8px; width: min(330px, 40vw); }
+.pr-root.war .pr-acts.three button { padding: 7px 2px; }
+.pr-root.war .pr-say { bottom: auto; top: 64px; }
+.pr-mk.cell.plain i { width: 4px; height: 4px; left: -2px; top: -2px; box-shadow: none; background: var(--oc); opacity: .35; }
+.pr-mk.cell.plain span { display: none; }
+.pr-mk.cell.can i, .pr-mk.cell.req i { width: 12px; height: 12px; left: -6px; top: -6px; }
+.pr-root.war .pr-acts.three { grid-template-columns: repeat(6, 1fr); gap: 3px; margin-top: 4px; }
+.pr-root.war .pr-acts.three button { font-size: clamp(5px, 1.3vw, 7px); }
+.pr-root.war .pr-info { width: min(560px, 64vw); max-height: 52%; }
+.pr-root.war .rw-sides { margin: 3px 0 1px; }
+.pr-root.war .rw-sides button { padding: 5px 3px; }
+.pr-root.war .rw-unit { margin: 2px 0; padding: 2px 5px; }

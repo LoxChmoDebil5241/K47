@@ -116,7 +116,7 @@ export function makePawn(p, side) {
     if (m === 'melee') { put(wClose, drawn.close); if (p.size === 'H') wClose.rotation.x = -0.9; }
   }
   pose('idle');
-  g.scale.setScalar(p.size === 'H' ? 0.3 : 0.29);
+  g.scale.setScalar(p.size === 'H' ? 0.07 : 0.065); // крошечные пешки
   g.userData = {
     pawn: p, side, headY, body,
     pose, get mode() { return mode; },
