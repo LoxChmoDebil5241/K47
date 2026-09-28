@@ -487,3 +487,11 @@ body.no-fx .post, body.no-fx #reader::before { display: none; }
 .pr-mk.sel i { box-shadow: 0 0 0 3px #fff, 0 0 18px #ff3040; }
 .pr-root { --dive: 0; }
 .pr-root .pr-grid { opacity: calc(1 - var(--dive) * .7); }
+.dev-code { display: flex; gap: 8px; }
+.dev-code input { flex: 1; min-width: 0; font: 14px/1 var(--f-pixel); letter-spacing: .3em; text-align: center; color: #ff4050; background: #0c0204; border: 2px solid #5a1020; padding: 10px; outline: none; }
+.dev-code[hidden] { display: none; }
+.dev-code .px { flex: none; width: 90px; }
+.dev-code input { width: auto; }
+#devBox .px { flex: none; width: 90px; }
+#devBox input { width: auto; flex: 1; }
+#settings .panel { max-height: 100vh; overflow-y: auto; }

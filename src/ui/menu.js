@@ -55,11 +55,23 @@ export function setupMenu({ onPause, onResume, describe }) {
     $('stSound').textContent = `ЗВУК: ${save.get('mute', false) ? 'ВЫКЛ' : 'ВКЛ'}`;
     $('stFx').textContent = `ЭФФЕКТЫ ЭКРАНА: ${save.get('noFx', false) ? 'ВЫКЛ' : 'ВКЛ'}`;
     $('stRead').textContent = `РЕЖИМ: ${save.get('readMode', false) ? 'ЧТЕНИЕ' : 'ИГРА'}`;
+    $('stDev').textContent = `РЕЖИМ РАЗРАБОТЧИКА: ${save.get('dev', false) ? 'ВКЛ' : 'ВЫКЛ'}`;
     document.body.classList.toggle('no-fx', save.get('noFx', false));
   };
   $('stSound').onclick = () => { save.set('mute', !save.get('mute', false)); setMuted(save.get('mute')); sfx.click(); renderSettings(); };
   $('stFx').onclick = () => { save.set('noFx', !save.get('noFx', false)); sfx.click(); renderSettings(); };
   $('stRead').onclick = () => { save.set('readMode', !save.get('readMode', false)); sfx.click(); renderSettings(); };
+  // режим разработчика: включается кодом, выключается сразу
+  $('stDev').onclick = () => {
+    sfx.click();
+    if (save.get('dev', false)) { save.set('dev', false); renderSettings(); return; }
+    $('devBox').hidden = !$('devBox').hidden; $('devCode').value = ''; if (!$('devBox').hidden) $('devCode').focus();
+  };
+  $('devOk').onclick = () => {
+    if ($('devCode').value === '474747') { save.set('dev', true); sfx.confirm(); $('devBox').hidden = true; renderSettings(); }
+    else { sfx.denied(); $('devCode').value = ''; }
+  };
+  $('devCode').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') $('devOk').onclick(); });
   renderSettings(); setMuted(save.get('mute', false));
 
   // ---------- кнопки ----------

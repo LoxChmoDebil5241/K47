@@ -60,7 +60,7 @@ export class Terminal {
     this.onTap = this.onWin = this.onLose = this.onGame = null;
   }
 
-  get progress() { return Math.min(save.get('chapter', 0), this.book.length - 1); }
+  get progress() { return save.get('dev', false) ? this.book.length - 1 : Math.min(save.get('chapter', 0), this.book.length - 1); }
   get wear() { return save.get('screen', 100); }
   get readMode() { return save.get('readMode', false); }
 
@@ -83,8 +83,7 @@ export class Terminal {
   back() { this.input = this.input.slice(0, -1); this.onKey?.(); this.dirty = true; }
   submit() {
     if (this.input.length < 12) return;
-    // скрытый мастер-код
-    if (this.input === this.code || this.input === '474747474747') { this.onGrant?.(); this.go('warn'); }
+    if (this.input === this.code) { this.onGrant?.(); this.go('warn'); }
     else { this.deny = 0.6; this.input = ''; this.onDeny?.(); this.dirty = true; }
   }
 
@@ -122,6 +121,7 @@ export class Terminal {
 
   // ---------- отрисовка ----------
   update(dt) {
+    const dv = save.get('dev', false); if (dv !== this._dev) { this._dev = dv; this.dirty = true; } // режим разработчика переключили
     this.time += dt;
     if (this.deny > 0) { this.deny -= dt; this.dirty = true; }
     if (this.flash > 0) { this.flash -= dt; this.dirty = true; }
@@ -172,6 +172,7 @@ export class Terminal {
     g.fillStyle = BG; g.fillRect(0, 0, W, H);
     const shake = this.deny > 0 ? Math.sin(this.time * 80) * 10 * this.deny : 0;
     g.save(); g.translate(shake, 0); g.globalAlpha = Math.min(1, 0.2 + this.appear);
+    if (this.state === 'locked' && save.get('dev', false)) { this.state = 'files'; this.page = 0; } // режим разработчика
     this[`draw_${this.state}`]();
     g.restore();
     if (this.flash > 0) { g.fillStyle = `rgba(255,60,80,${this.flash * 2})`; g.fillRect(0, 0, W, H); }
