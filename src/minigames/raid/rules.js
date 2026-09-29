@@ -1,43 +1,65 @@
 // Правила боя рейдерских отрядов: пешки, отряды, стороны, погода, модификаторы БЕ, исход боя.
 // БЕ — боеспособность. Все модификаторы считаются на каждую пешку отдельно, с причиной.
 
+// range — дальность атаки пешки в клетках (1 — впритык)
 export const SIZE = {
-  L: { mark: 'Л', name: 'РАЗВЕДЧИК', be: 5 },
-  M: { mark: 'С', name: 'ШТУРМОВИК', be: 7.5 },
-  H: { mark: 'Б', name: 'ДЖАГГЕРНАУТ', be: 10 },
+  L: { mark: 'Л', name: 'РАЗВЕДЧИК', be: 5, range: 5 },
+  M: { mark: 'С', name: 'ШТУРМОВИК', be: 7.5, range: 3 },
+  H: { mark: 'Б', name: 'ДЖАГГЕРНАУТ', be: 10, range: 2 },
+  // фауна
+  T: { mark: 'Н', name: 'НЕМАТОДА', be: 3, range: 1, fauna: true },
+  S: { mark: 'Ш', name: 'ШИПУН', be: 6, range: 2, fauna: true },
+  F: { mark: 'Ф', name: 'ФИЛЬТРАТОР', be: 14, range: 1, fauna: true },
 };
 export const WEAPON = {
   sniper: 'СНАЙПЕРСКАЯ ВИНТОВКА', knife: 'НОЖ',
   smg: 'ПИСТОЛЕТ-ПУЛЕМЁТ', shotgun: 'ДРОБОВИК', burner: 'ГОРЕЛКА',
   mg: 'ПУЛЕМЁТ', hammer: 'КУВАЛДА',
+  claw: 'КЛЕШНИ', mandible: 'ЖВАЛА', spit: 'КИСЛОТНЫЙ ПЛЕВОК',
 };
 // основное оружие и оружие ближнего боя по размеру
 export function arms(size) {
   if (size === 'L') return { main: 'sniper', close: 'knife' };
   if (size === 'H') return { main: 'mg', close: 'hammer' };
+  if (size === 'T') return { main: 'mandible', close: 'mandible' };
+  if (size === 'S') return { main: 'spit', close: 'claw' };
+  if (size === 'F') return { main: 'claw', close: 'claw' };
   const w = ['smg', 'shotgun', 'burner'][Math.floor(Math.random() * 3)];
   return { main: w, close: w };
 }
+// range — дальность, на которой в бой вступает весь отряд; sight — обзор при передвижении
 export const SQUAD = {
-  assault: { name: 'ШТУРМОВОЙ', tag: 'ШТ', comp: ['H', 'M', 'M', 'M', 'M', 'M', 'L'], text: '7 пешек: 1 большая, 5 средних, 1 маленькая' },
-  hold: { name: 'ЗАКРЕПЛЯЮЩИЙ', tag: 'ЗК', comp: ['H', 'H', 'H', 'M', 'M'], text: '5 пешек: 3 большие, 2 средние' },
-  recon: { name: 'РАЗВЕДКА', tag: 'РЗ', comp: ['L', 'L', 'L'], text: '3 маленькие пешки' },
+  assault: { name: 'ШТУРМОВОЙ', tag: 'ШТ', comp: ['H', 'M', 'M', 'M', 'M', 'M', 'L'], text: '7 пешек: 1 большая, 5 средних, 1 маленькая', range: 3, sight: 1 },
+  hold: { name: 'ЗАКРЕПЛЯЮЩИЙ', tag: 'ЗК', comp: ['H', 'H', 'H', 'M', 'M'], text: '5 пешек: 3 большие, 2 средние', range: 1, sight: 1 },
+  recon: { name: 'РАЗВЕДКА', tag: 'РЗ', comp: ['L', 'L', 'L'], text: '3 маленькие пешки', range: 5, sight: 3 },
+  // стаи фауны
+  swarm: { name: 'КЛУБОК НЕМАТОД', tag: 'НЕМ', comp: ['T', 'T', 'T', 'T', 'T', 'T'], text: '6 нематод', range: 1, sight: 2 },
+  spitters: { name: 'ШИПУНЫ', tag: 'ШИП', comp: ['S', 'S', 'T', 'T'], text: '2 шипуна, 2 нематоды', range: 2, sight: 2 },
+  brood: { name: 'ФИЛЬТРАТОР', tag: 'ФИЛ', comp: ['F', 'T', 'T', 'T'], text: 'фильтратор и 3 нематоды', range: 1, sight: 2 },
 };
+export const FAUNA_TYPES = ['swarm', 'spitters', 'brood'];
+// техника
+export const VEHICLE = {
+  truck: { name: 'ТРУПОВОЗКА', tag: 'ТР', move: 4, cap: 12, text: 'промышленный фургон-вездеход: собирает трупы, возит 1 отряд' },
+  shuttle: { name: 'ШАТТЛ', tag: 'ШЛ', move: 6, text: 'занимает воздух над клеткой, возит и высаживает 1 отряд' },
+};
+export const CLONE_TIME = 180; // 2 трупа → 1 пешка через 3 минуты
+// ctrl — радиус контроля территории, если строение занято
 export const BUILDING = {
-  tower: { name: 'ВЫШКА', fort: 1, value: 1 },
-  post: { name: 'БЛОК-ПОСТ', fort: 3, value: 1 },
-  mine: { name: 'ШАХТА', fort: 5, value: 2 },
+  tower: { name: 'ВЫШКА', fort: 1, value: 1, ctrl: 3 },
+  post: { name: 'БЛОК-ПОСТ', fort: 3, value: 1, ctrl: 2 },
+  mine: { name: 'ШАХТА', fort: 5, value: 2, ctrl: 1 },
 };
 export const ACTION = {
   scout: 'РАЗВЕДКА', attack: 'АТАКА', fortify: 'ЗАКРЕПИТЬСЯ',
   retreat: 'ОТСТУПИТЬ', move: 'ПЕРЕМЕСТИТЬСЯ', wait: 'ОЖИДАТЬ',
 };
 export const ACTION_TEXT = {
-  scout: 'Не входят в клетку. Открывают 2 клетки: рядом или в длину.',
-  attack: 'Вторжение в соседнюю клетку. Неразведанная клетка: −4 каждой пешке.',
+  scout: 'Не меняя позиции: 1 любая клетка (у разведки — 3). Снайпер выходит, проверяет и возвращается.',
+  attack: 'В пределах дальности отряда. Бьют только пешки, до которых достаёт оружие. Впритык — захват клетки. Неразведанная: −4.',
   fortify: 'Встают в оборону: +1 каждой; вышка +1, пост +3, шахта +5.',
   retreat: 'Уходят на соседнюю клетку. −1 каждой, пока отходят.',
-  move: 'Переход в указанную клетку (до 2 шагов) без боя.',
+  move: 'Переход в указанную клетку (до 2 шагов) без боя. Открывает клетки вокруг.',
   wait: 'Просто стоят, оборону не разворачивают.',
 };
 export const SIDE = {
@@ -45,13 +67,13 @@ export const SIDE = {
   snk: { name: 'СНК', full: 'ЗА СНК', text: 'бьют НТ и неизвестных, защищают СНК, СНК не трогают' },
   neutral: { name: 'НЕЙТР.', full: 'НЕЙТРАЛИТЕТ', text: 'НТ и СНК игнорируют, бьют только неизвестных' },
 };
-export const FACTION = { nt: 'НТ', snk: 'СНК', unk: 'НЕИЗВЕСТНЫЕ', us: 'АКТИВ' };
+export const FACTION = { nt: 'НТ', snk: 'СНК', unk: 'НЕИЗВЕСТНЫЕ', us: 'АКТИВ', fauna: 'ФАУНА' };
 
 // погода: модификаторы по условиям (size — размер пешки, squad — тип отряда, act — действие)
 export const WEATHER = {
   clear: { name: 'ЯСНО', close: false, mods: [{ size: 'L', v: 1, why: 'снайперам видно цель' }, { act: 'scout', v: 1, why: 'обзор дальше' }] },
-  blizzard: { name: 'МЕТЕЛЬ', close: true, mods: [{ act: 'scout', v: -2, why: 'ничего не видно' }, { act: 'attack', v: -1, why: 'наступать против ветра' }] },
-  fog: { name: 'ЛЕДЯНОЙ ТУМАН', close: true, mods: [{ act: 'scout', v: -1, why: 'туман' }, { squad: 'recon', act: 'attack', v: 2, why: 'туман скрывает внезапную атаку' }] },
+  blizzard: { name: 'МЕТЕЛЬ', close: true, vis: 2, mods: [{ act: 'scout', v: -2, why: 'ничего не видно' }, { act: 'attack', v: -1, why: 'наступать против ветра' }] },
+  fog: { name: 'ЛЕДЯНОЙ ТУМАН', close: true, vis: 3, mods: [{ act: 'scout', v: -1, why: 'туман' }, { squad: 'recon', act: 'attack', v: 2, why: 'туман скрывает внезапную атаку' }] },
   sleet: { name: 'ЛЕДЯНОЙ ДОЖДЬ', close: false, mods: [{ size: 'H', v: -1, why: 'тяжёлые скользят по насту' }, { act: 'defend', v: 1, why: 'атакующих сносит на насте' }] },
   magnet: { name: 'МАГНИТНАЯ БУРЯ', close: false, mods: [{ size: 'L', v: -1, why: 'оптика и дальномеры сбоят' }, { act: 'scout', v: -1, why: 'сканеры глохнут' }] },
   frost: { name: 'МОРОЗ −110°', close: false, mods: [{ v: -0.5, why: 'оружие клинит на морозе' }, { act: 'defend', fort: true, v: 1, why: 'укрытия держат тепло' }] },
@@ -59,20 +81,22 @@ export const WEATHER = {
 export const WEATHER_KEYS = Object.keys(WEATHER);
 
 let pid = 0, sid = 0;
+// пешка: у каждой — своё смещение в клетке (стоят вразнобой)
+export const newPawn = (size) => ({ id: ++pid, size, ...arms(size), ox: Math.random() * 2 - 1, oz: Math.random() * 2 - 1, wall: Math.random() < 0.5 });
 // новый отряд: side — 'us' | 'nt' | 'snk' | 'unk'; ally — за кого воюет наш отряд
 export function newSquad(type, side, ally = 'neutral') {
   const n = ++sid;
   return {
     id: n, type, side, ally, stance: 'wait', cd: 0, retreatT: 0,
     tag: `${SQUAD[type].tag}-${n}`,
-    pawns: SQUAD[type].comp.map((size) => ({ id: ++pid, size, ...arms(size) })),
+    pawns: SQUAD[type].comp.map(newPawn),
   };
 }
 
 // враждебность двух отрядов
 export function hostile(a, b) {
   if (a.side === b.side) return false;
-  if (a.side === 'unk' || b.side === 'unk') return true;
+  if (a.side === 'unk' || b.side === 'unk' || a.side === 'fauna' || b.side === 'fauna') return true;
   if (a.side === 'us') return a.ally !== 'neutral' && a.ally !== b.side;
   if (b.side === 'us') return b.ally !== 'neutral' && b.ally !== a.side;
   return true;
@@ -80,10 +104,15 @@ export function hostile(a, b) {
 // враждебна ли сторона-владелец клетки отряду
 export const hostileOwner = (sq, owner) => !!owner && owner !== 'us' && hostile(sq, { side: owner, ally: owner });
 
-// дистанция боя: в строениях и в плохую видимость — ближний
-export const isClose = (building, weather) => !!building || WEATHER[weather].close;
+// дистанция боя: впритык — ближний; дальность отряда и пешки; погода режет дальность
+export const isClose = (d) => d <= 1;
+export const pawnRange = (p) => SIZE[p.size].range;
+export const squadRange = (u, weather) => Math.min(SQUAD[u.type].range, WEATHER[weather].vis || 9);
+export const inRange = (p, d, weather) => Math.min(SIZE[p.size].range, WEATHER[weather].vis || 9) >= d;
+// сторона контроля отряда: наш нейтральный отряд держит территорию сам
+export const ctrlSide = (u) => (u.side === 'us' ? (u.ally === 'neutral' ? 'us' : u.ally) : u.side);
 
-// БЕ одной пешки. c: { act: 'attack'|'defend'|'scout', scouted, close, building, fortified, retreating, weather }
+// БЕ одной пешки. c: { act: 'attack'|'defend'|'scout', scouted, close, building, fortified, retreating, weather, ctrl, foe }
 export function pawnBE(p, type, c) {
   const mods = [], add = (v, why) => mods.push({ v, why });
   if (c.act === 'attack') {
@@ -104,6 +133,11 @@ export function pawnBE(p, type, c) {
     if (type === 'hold') add(-5, 'закрепляющие не годятся в разведку');
   }
   if (c.close && p.size === 'L' && c.act !== 'scout') add(-0.25, 'вблизи — нож вместо винтовки');
+  if (c.ctrl && c.act !== 'scout') add(1, 'контроль территории');
+  // фауна
+  if (c.foe === 'fauna' && p.main === 'burner') add(3, 'огонь — фауна его боится');
+  if (SIZE[p.size].fauna && (c.weather === 'blizzard' || c.weather === 'fog')) add(2, 'фауна охотится в непогоду');
+  if (SIZE[p.size].fauna && c.act === 'attack' && c.foeFort) add(-2, 'стенки и окопы');
   const W = WEATHER[c.weather];
   for (const r of W.mods) {
     if (r.size && r.size !== p.size) continue;

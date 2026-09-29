@@ -624,3 +624,9 @@ body.no-fx .post, body.no-fx #reader::before { display: none; }
 .pr-root.war .pr-acts.three { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .pr-root.war .pr-acts.three button { padding: 9px 1px; font-size: clamp(5px, 1.35vw, 8px); white-space: normal; }
 .pr-root.war .rw-toast { bottom: calc(48% + 6px); }
+/* захват: плашки и реплики следуют за пешками; реплика — над плашкой */
+.pr-mk.chip span { left: 0; top: -24px; transform: translateX(-50%); }
+.pr-mk.chip.veh span { background: rgba(40,34,10,.85); box-shadow: inset 0 0 0 1px #ffb030; color: #ffe8b0; }
+.pr-mk.bark span { top: -50px !important; }
+.pr-root.war .pr-acts.three { grid-template-columns: repeat(auto-fit, minmax(clamp(60px, 11vw, 110px), 1fr)); }
+.rw-table tr.off td { opacity: .45; }
