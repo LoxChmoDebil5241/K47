@@ -45,7 +45,7 @@ export function setupReader(book, { onClose }) {
     btn('◀ К ФАЙЛАМ', close);
   }
 
-  function close() { stop(); el.hidden = true; onClose?.(); }
+  function close() { stop(); document.body.classList.remove('immersive'); el.hidden = true; onClose?.(); }
   el.querySelector('.rd-x').addEventListener('click', () => { sfx.back(); close(); });
 
   // испытание на весь экран: 5 касаний за 5 секунд
@@ -54,6 +54,7 @@ export function setupReader(book, { onClose }) {
     if (GAMES[ch]) {
       // настоящая мини-игра главы — на весь экран, без шапки
       el.className = 'mode-game full'; foot.innerHTML = ''; body.innerHTML = '';
+      document.body.classList.toggle('immersive', !!GAMES[ch].immersive);
       const root = document.createElement('div'); body.appendChild(root);
       let fin = false;
       cleanup = GAMES[ch].run(root, (win) => { if (fin) return; fin = true; done(win); close(); }) || null;

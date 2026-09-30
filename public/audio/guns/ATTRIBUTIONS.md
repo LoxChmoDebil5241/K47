@@ -335,3 +335,16 @@
   - femalescream_5.ogg
   - malescream_1.ogg
   - malescream_2.ogg
+
+## Дополнительно (Resources/Audio/Effects, Voice/Human)
+- floor1–5.ogg — Effects/Footsteps (CEV-Eris / tgstation / vgstation13, modified by mirrorcult), CC-BY-SA-3.0
+- largethud.ogg — CC0-1.0, philRacoIndie (freesound 512483), modified by brainfood1183
+- gen_hit.ogg — Effects/gen_hit.ogg (SS14, см. Resources/Audio/Effects/attributions.yml)
+- bsplash.ogg — Effects/Fluids/splash.ogg, CC0-1.0, deadrobotmusic (freesound 609953)
+- manlaugh1.ogg — Voice/Human, CC-BY-SA-3.0, /tg/station
+
+## Спрайты (src/assets/fx, src/assets/muzzle.png)
+- splatter-*, gibblet-* — Resources/Textures/Fluids, CC-BY-SA-3.0, CEV-Eris (icons/effects/blood.dmi)
+- splat0–6 — Resources/Textures/Fluids/puddle.rsi, CC-BY-SA-3.0, Alekshhh, potato1234x
+- sparks.png — Resources/Textures/Effects/sparks.rsi, CC0-1.0, deltanedas
+- muzzle.png — projectiles.rsi/muzzle_bullet, CC-BY-SA-3.0, CEV-Eris

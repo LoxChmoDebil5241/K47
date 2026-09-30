@@ -315,13 +315,13 @@ export function ringing(dur = 6) {
   o.connect(g).connect(master); o.start(t0); o.stop(t0 + dur + 2.1);
 }
 // сэмпл с мощным отдельным басом (джаггернаут)
-export function sampleHeavy(n, vol = 1.5) {
+export function sampleHeavy(n, vol = 1.5, bass = 22) {
   if (!ctx || !bufs[n]) { preload([n]); return false; }
   const s = ctx.createBufferSource(), low = ctx.createBiquadFilter(), g = ctx.createGain();
-  low.type = 'lowshelf'; low.frequency.value = 180; low.gain.value = 22;
+  low.type = 'lowshelf'; low.frequency.value = 180; low.gain.value = bass;
   s.buffer = bufs[n]; s.playbackRate.value = 0.85; g.gain.value = vol;
   s.connect(low).connect(g).connect(bus()); s.start();
-  tone('sine', [90, 35], 0.3, 0.9);
+  if (bass > 14) tone('sine', [90, 35], 0.3, 0.9);
   return true;
 }
 export function sample(n, vol = 1, rate = 1) {
