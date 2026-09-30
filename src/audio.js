@@ -138,6 +138,7 @@ export const sfx = {
   // сердце и шёпот для темноты (не 8-бит)
   // рация: щелчок тангенты 8-бит, дальше живой эфир
   ptt() { tone('square', 1400, 0.03, 0.08); real(1.8, 0.1, 0.05, 2600, 'bandpass'); tone('square', 1760, 0.08, 0.06, 1.9); },
+  heart() { sine(50, 0.22, 1.2); real(0.1, 0.6, 0, 150); sine(44, 0.2, 1, 0.22); real(0.08, 0.5, 0.22, 140); },
   heartbeat(p = 0.5) { sine(58, 0.14, 0.25 + p * 0.35); real(0.08, 0.1 * p, 0, 180); sine(52, 0.12, 0.2 + p * 0.3, 0.2); real(0.07, 0.08 * p, 0.2, 160); },
   whisper() { real(0.9, 0.05, 0, 2600, 'bandpass'); real(0.6, 0.04, 0.3, 3800, 'bandpass'); },
   // выстрел: сухой хлопок, отдача и звон в ушах
@@ -305,6 +306,24 @@ export function preload(names) {
   }
 }
 // проиграть сэмпл; false — если ещё не загружен (тогда можно синтез)
+// звон в ушах: тонкий синус нарастает
+export function ringing(dur = 6) {
+  if (!ctx) return;
+  const o = ctx.createOscillator(), g = ctx.createGain(), t0 = ctx.currentTime;
+  o.type = 'sine'; o.frequency.value = 4200;
+  g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.25, t0 + dur); g.gain.linearRampToValueAtTime(0, t0 + dur + 2);
+  o.connect(g).connect(master); o.start(t0); o.stop(t0 + dur + 2.1);
+}
+// сэмпл с мощным отдельным басом (джаггернаут)
+export function sampleHeavy(n, vol = 1.5) {
+  if (!ctx || !bufs[n]) { preload([n]); return false; }
+  const s = ctx.createBufferSource(), low = ctx.createBiquadFilter(), g = ctx.createGain();
+  low.type = 'lowshelf'; low.frequency.value = 180; low.gain.value = 22;
+  s.buffer = bufs[n]; s.playbackRate.value = 0.85; g.gain.value = vol;
+  s.connect(low).connect(g).connect(bus()); s.start();
+  tone('sine', [90, 35], 0.3, 0.9);
+  return true;
+}
 export function sample(n, vol = 1, rate = 1) {
   if (!ctx || !bufs[n]) { preload([n]); return false; }
   const s = ctx.createBufferSource(), g = ctx.createGain();
