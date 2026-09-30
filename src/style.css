@@ -47,6 +47,3 @@ html, body {
   width: 44px; height: 44px; font-size: 20px;
   color: #ff4a4a; background: rgba(0, 0, 0, .6); border: 1px solid #a11;
 }
-
-/* ссылка на платформер «Кубы» */
-#pf-link{position:fixed;top:10px;left:12px;z-index:20;color:#fff9;font:14px sans-serif;text-decoration:none;padding:6px 10px;border:1px solid #fff3;border-radius:8px;background:#0006}
