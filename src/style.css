@@ -686,3 +686,21 @@ body.immersive .post, body.immersive #reader::before { display: none; }
 .ag-top i { display: block; width: 50%; height: 6px; margin: 0 auto; background: #2a0508; } .ag-top u { display: block; height: 100%; width: 0; background: #ff3a4e; text-decoration: none; }
 .ag-end { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font: clamp(14px, 4vw, 26px)/1 var(--f-pixel); opacity: 0; transition: opacity .3s; pointer-events: none; }
 .ag-end.on { opacity: 1; } .ag-end.win { color: #7dff9a; } .ag-end.lose { color: #ff2030; }
+.sh-txt { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 8; }
+.sh-intro { position: absolute; inset: 0; z-index: 9; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: rgba(0,0,0,.72); transition: opacity .6s; pointer-events: none; }
+.sh-intro.off { opacity: 0; }
+.sh-intro p { margin: 0; font: clamp(9px, 2.6vw, 14px)/1.4 var(--f-pixel); color: #fff; text-align: center; }
+.sh-intro .ph { width: 34px; height: 58px; border: 3px solid #fff; border-radius: 7px; animation: phRot 1.6s ease-in-out infinite; position: relative; }
+.sh-intro .ph::after { content: ''; position: absolute; left: 50%; bottom: 4px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: #fff; }
+@keyframes phRot { 0%, 20% { transform: rotate(0); } 55%, 100% { transform: rotate(-90deg); } }
+.sh-txt { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 8; transform: scale(1.08); }
+.sh-intro { position: absolute; inset: 0; z-index: 9; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: rgba(0,0,0,.72); transition: opacity .6s; pointer-events: none; }
+.sh-intro.off { opacity: 0; }
+.sh-intro p { margin: 0; font: clamp(9px, 2.6vw, 14px)/1.4 var(--f-pixel); color: #fff; text-align: center; }
+.sh-intro .ph { width: 34px; height: 58px; border: 3px solid #fff; border-radius: 7px; animation: phRot 1.6s ease-in-out infinite; position: relative; }
+.sh-intro .ph::after { content: ''; position: absolute; left: 50%; bottom: 4px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: #fff; }
+@keyframes phRot { 0%, 20% { transform: rotate(0); } 55%, 100% { transform: rotate(-90deg); } }
+.sh-urge { position: absolute; z-index: 7; transform: translate(-50%, -50%); font: clamp(20px, 7vw, 54px)/1 var(--f-pixel); color: #ff1a1a; text-shadow: 3px 3px 0 #000, 0 0 18px #f00; opacity: 0; pointer-events: none; }
+.sh-urge.on { animation: urge .5s steps(4) forwards; }
+@keyframes urge { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1.6); } 60% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(.9); } }
+.sh-root.fall .sh-urge { display: none; }
