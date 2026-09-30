@@ -1,225 +1,260 @@
 import * as THREE from 'three';
 import { sfx, storm, war as snd } from '../audio.js';
+import smgUrl from '../assets/smg.png';
 
-// Глава 10 «Щит» — К-21 держит коридор, пока учёные уходят к челноку.
-// 3D: только коридор (бетон, трубы, аварийные лампы, гермоворота вдали).
-// 2D поверх: руки в тяжёлой броне и пистолет-пулемёт на «костях» (плечо → предплечье → кисть → оружие), отдача, покачивание.
-// Цель: стрелять по вспышкам выстрелов рейдеров в конце коридора. Пропущенная вспышка — попадание в нас.
-const DURATION = 60, MAG = 32, HP = 100;
+// Глава 10 «Щит» — К-21 держит коридор, пока учёные уходят к челноку. Стиль — как Sierra 7:
+// серый мир с жирными контурами, яркая только кровь и вспышки.
+// 3D: только помещение. 2D: рейдеры за укрытиями, руки на костях (ИК) и пиксельный спрайт ПП.
+// Касание — выстрел в точку. «УКРЫТИЕ» (удерживать) — не попадут, но и стрелять нельзя; в укрытии — перезарядка.
+const DURATION = 60, MAG = 32, HP = 100, SCI = 20;
 
 export default {
   name: 'Щит',
   run(root, done) {
     root.classList.add('sh-root');
     root.innerHTML = `<canvas class="sh-3d"></canvas><canvas class="sh-2d"></canvas>
-      <div class="sh-hud"><span class="sh-hp"></span><span class="sh-time"></span><span class="sh-sci"></span></div>
-      <button class="sh-reload">ПЕРЕЗАРЯДКА</button><div class="sh-ammo"></div><div class="sh-blood"></div><p class="sh-msg"></p>`;
+      <div class="sh-hud"><div class="sh-life"><span>ТЕЛО</span><i><b></b></i></div><span class="sh-time"></span><span class="sh-sci"></span></div>
+      <div class="sh-kills"></div><div class="sh-ammo"></div>
+      <button class="sh-cover"><i>▼</i> УКРЫТИЕ</button><button class="sh-reload">⟳</button>
+      <div class="sh-blood"></div><p class="sh-msg"></p>`;
     const $ = (q) => root.querySelector(q);
     const c3 = $('.sh-3d'), c2 = $('.sh-2d'), g = c2.getContext('2d');
+    const gun = new Image(); gun.src = smgUrl;
 
-    // ---------- 3D коридор ----------
+    // ---------- 3D коридор: плоские серые материалы + контуры рёбер ----------
     const renderer = new THREE.WebGLRenderer({ canvas: c3, antialias: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
-    const scene = new THREE.Scene(); scene.background = new THREE.Color(0x050304); scene.fog = new THREE.Fog(0x050304, 4, 30);
-    const camera = new THREE.PerspectiveCamera(62, 1, 0.05, 60); camera.position.set(0, 1.6, 0);
-    const concrete = (() => {
-      const cv = document.createElement('canvas'); cv.width = cv.height = 256; const x = cv.getContext('2d');
-      x.fillStyle = '#5a5552'; x.fillRect(0, 0, 256, 256);
-      for (let i = 0; i < 3000; i++) { x.fillStyle = `rgba(${Math.random() < 0.5 ? '0,0,0' : '255,255,255'},${Math.random() * 0.08})`; x.fillRect(Math.random() * 256, Math.random() * 256, 2, 2); }
-      x.strokeStyle = 'rgba(0,0,0,.35)'; x.strokeRect(0, 0, 256, 256);
-      const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t;
-    })();
-    const L = 30, W = 3, H = 3;
-    const mat = (rx, ry) => { const t = concrete.clone(); t.needsUpdate = true; t.repeat.set(rx, ry); return new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 }); };
-    const plane = (w, h, m) => new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
-    const floor = plane(W, L, mat(2, 20)); floor.rotation.x = -Math.PI / 2; floor.position.z = -L / 2; scene.add(floor);
-    const ceil = plane(W, L, mat(2, 20)); ceil.rotation.x = Math.PI / 2; ceil.position.set(0, H, -L / 2); scene.add(ceil);
-    for (const s of [-1, 1]) { const w = plane(L, H, mat(20, 2)); w.rotation.y = -s * Math.PI / 2; w.position.set(s * W / 2, H / 2, -L / 2); scene.add(w); }
-    // трубы вдоль стен, рёбра, лампы
-    const pipeM = new THREE.MeshStandardMaterial({ color: 0x2e3236, metalness: 0.7, roughness: 0.4 });
-    for (const [x, y, r] of [[-1.35, 2.6, 0.08], [-1.35, 2.35, 0.05], [1.38, 2.7, 0.06]]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L, 8), pipeM); p.rotation.x = Math.PI / 2; p.position.set(x, y, -L / 2); scene.add(p); }
-    const lamps = [];
-    for (let z = -3; z > -L; z -= 5) {
-      const rib = new THREE.Mesh(new THREE.BoxGeometry(W, 0.18, 0.25), pipeM); rib.position.set(0, H - 0.09, z); scene.add(rib);
-      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.08, 0.12), new THREE.MeshBasicMaterial({ color: 0xff2010 })); lamp.position.set(0, H - 0.2, z); scene.add(lamp);
-      const pl = new THREE.PointLight(0xff2a14, 3, 7, 1.6); pl.position.set(0, H - 0.4, z); scene.add(pl); lamps.push([lamp, pl]);
+    const scene = new THREE.Scene(); scene.background = new THREE.Color(0x1a1a1a); scene.fog = new THREE.Fog(0x1a1a1a, 10, 34);
+    const camera = new THREE.PerspectiveCamera(60, 1, 0.05, 60);
+    const L = 28, W = 3.4, H = 3;
+    const flat = (c) => new THREE.MeshLambertMaterial({ color: c });
+    const EDGE = new THREE.LineBasicMaterial({ color: 0x0a0a0a });
+    function block(w, h, d, x, y, z, c) {
+      const geo = new THREE.BoxGeometry(w, h, d), m = new THREE.Mesh(geo, flat(c)); m.position.set(x, y, z); scene.add(m);
+      const e = new THREE.LineSegments(new THREE.EdgesGeometry(geo), EDGE); e.position.copy(m.position); scene.add(e);
+      return m;
     }
-    // гермоворота в конце: закрыты, ящики-укрытия рейдеров
-    const door = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.3), new THREE.MeshStandardMaterial({ color: 0x3a3a34, metalness: 0.6, roughness: 0.5 })); door.position.set(0, H / 2, -L); scene.add(door);
-    const crateM = new THREE.MeshStandardMaterial({ color: 0x4a4638, roughness: 0.8 });
-    const covers = [[-0.9, -18], [0.8, -21], [-0.6, -25], [0.9, -14]];
-    for (const [x, z] of covers) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.7), crateM); c.position.set(x, 0.45, z); scene.add(c); }
-    scene.add(new THREE.AmbientLight(0x301818, 1.2));
-    const flashLight = new THREE.PointLight(0xffc070, 0, 8, 1.5); scene.add(flashLight);
-    const muzzleLight = new THREE.PointLight(0xffd080, 0, 5, 1.5); muzzleLight.position.set(0.3, 1.3, -0.8); scene.add(muzzleLight);
+    block(W, 0.1, L, 0, -0.05, -L / 2, 0x6a6a6a);               // пол
+    block(W, 0.1, L, 0, H + 0.05, -L / 2, 0x4a4a4a);            // потолок
+    block(0.1, H, L, -W / 2, H / 2, -L / 2, 0x8a8a8a);          // стены
+    block(0.1, H, L, W / 2, H / 2, -L / 2, 0x7e7e7e);
+    // двери, плинтусы, лампы, трубы — чтобы стены читались
+    for (let z = -4; z > -L; z -= 6) {
+      for (const s of [-1, 1]) {
+        block(0.06, 2.1, 1, s * (W / 2 - 0.05), 1.05, z, 0x5a5a5a);
+        block(0.04, 0.12, 0.12, s * (W / 2 - 0.1), 1.05, z + 0.35 * s, 0x2a2a2a);
+      }
+      block(0.5, 0.06, 0.25, 0, H - 0.04, z - 3, 0xeeeeee);
+    }
+    block(0.14, 0.14, L, -W / 2 + 0.2, H - 0.3, -L / 2, 0x505050);
+    block(0.1, 0.1, L, W / 2 - 0.2, H - 0.45, -L / 2, 0x505050);
+    block(W, H, 0.2, 0, H / 2, -L, 0x3c3c3c);                  // гермоворота
+    block(W * 0.9, 0.1, 0.05, 0, 1.5, -L + 0.13, 0xc9a21a);     // жёлто-чёрная полоса на воротах
+    // укрытия рейдеров: ящики, перевёрнутый стол, колонна
+    const COVERS = [[-0.95, -5.5, 1, 0.9], [0.9, -7.5, 1.2, 1], [-0.7, -10, 0.9, 1.1], [0.85, -12.5, 1, 0.9], [-0.9, -15, 1.1, 1]];
+    for (const [x, z, w, h] of COVERS) block(w, h, 0.6, x, h / 2, z, 0x5e5a52);
+    scene.add(new THREE.AmbientLight(0xffffff, 1.3));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(1, 3, 2); scene.add(sun);
 
     // ---------- состояние ----------
-    const st = { t: 0, hp: HP, ammo: MAG, reload: 0, kills: 0, over: false, recoil: 0, sway: 0, aim: { x: 0, y: 0 }, fire: false, cool: 0, shake: 0, flashes: [], next: 1.2, blood: 0, sci: 20 };
+    const st = {
+      t: 0, hp: HP, ammo: MAG, reload: 0, kills: 0, over: false, recoil: 0, cover: false, coverK: 0,
+      aim: { x: 0, y: -0.05 }, fire: false, cool: 0, shake: 0, blood: 0, sci: 0, splats: [],
+      foes: COVERS.map(([x, z, w, h], i) => ({ i, x: x + (x < 0 ? 0.25 : -0.25), z: z - 0.35, coverH: h, state: 'hide', t: 1 + i * 0.8 + Math.random(), up: 0, hp: 1, flip: x < 0 ? 1 : -1, dead: 0, seed: Math.random() })),
+    };
     const say = (t, cls = '') => { const m = $('.sh-msg'); m.textContent = t; m.className = `sh-msg on ${cls}`; clearTimeout(say.t); say.t = setTimeout(() => (m.className = 'sh-msg'), 1800); };
     const tmp = new THREE.Vector3();
+    const proj = (x, y, z, w, h) => { tmp.set(x, y, z).project(camera); return [(tmp.x + 1) / 2 * w, (1 - tmp.y) / 2 * h, tmp.z]; };
 
-    // вспышка выстрела рейдера — точка в конце коридора (из-за укрытия)
-    function spawn() {
-      const [cx, cz] = covers[Math.floor(Math.random() * covers.length)];
-      const pos = new THREE.Vector3(cx + (Math.random() - 0.5) * 0.8, 0.8 + Math.random() * 0.7, cz + 0.4);
-      st.flashes.push({ pos, t: 0, life: 1.1 + Math.random() * 0.7, shots: 0, seed: Math.random() * 10 });
-    }
-    // прицел: палец/мышь двигают, выстрел — удержание
+    // ---------- ввод ----------
     const aimAt = (e) => { const r = c2.getBoundingClientRect(); st.aim.x = ((e.clientX - r.left) / r.width) * 2 - 1; st.aim.y = ((e.clientY - r.top) / r.height) * 2 - 1; };
     c2.addEventListener('pointerdown', (e) => { aimAt(e); st.fire = true; c2.setPointerCapture?.(e.pointerId); });
     c2.addEventListener('pointermove', (e) => { if (st.fire || e.pointerType === 'mouse') aimAt(e); });
     const up = () => (st.fire = false); c2.addEventListener('pointerup', up); c2.addEventListener('pointercancel', up);
-    const reload = () => { if (st.reload > 0 || st.ammo === MAG) return; st.reload = 1.6; storm.lever(); say('Перезарядка!'); };
+    const cov = $('.sh-cover');
+    const coverOn = (e) => { e.preventDefault(); e.stopPropagation(); if (!st.cover) { st.cover = true; sfx.click(); } };
+    const coverOff = (e) => { e?.stopPropagation(); st.cover = false; };
+    cov.addEventListener('pointerdown', coverOn); cov.addEventListener('pointerup', coverOff); cov.addEventListener('pointercancel', coverOff); cov.addEventListener('pointerleave', coverOff);
+    const reload = () => { if (st.reload > 0 || st.ammo === MAG) return; st.reload = 1.5; storm.lever(); };
     $('.sh-reload').addEventListener('pointerdown', (e) => { e.stopPropagation(); reload(); });
-    const kd = (e) => { if (e.key === 'r' || e.key === 'к') reload(); };
-    addEventListener('keydown', kd);
+    const kd = (e) => { if (e.key === 'r' || e.key === 'к') reload(); if (e.key === ' ' || e.key === 'Shift') st.cover = e.type === 'keydown'; };
+    addEventListener('keydown', kd); addEventListener('keyup', kd);
+
+    // ---------- рейдер (2D поверх 3D, в духе Sierra 7) ----------
+    // точки фигуры в метрах от ног: голова, корпус, руки с оружием
+    function foeBox(f, w, h) {
+      const y0 = f.coverH * (1 - f.up) - 0.1;          // из-за укрытия поднимается
+      const [x, yF] = proj(f.x, Math.max(0, y0), f.z, w, h), [, yH] = proj(f.x, y0 + 1.75, f.z, w, h);
+      const s = (yF - yH) / 1.75;                      // пикселей на метр
+      return { x, yF, yH, s, top: yH, bottom: proj(f.x, f.coverH, f.z, w, h)[1] };
+    }
+    function drawFoe(f, w, h) {
+      if (f.state === 'hide' && f.up <= 0 && !f.dead) return;
+      const b = foeBox(f, w, h), s = b.s, x = b.x, y = b.yF;
+      g.save();
+      // обрезка по верху укрытия — рейдер «за» ящиком
+      g.beginPath(); g.rect(0, 0, w, b.bottom + (f.dead ? 999 : 0)); g.clip();
+      g.translate(x, y); if (f.dead) g.rotate(f.flip * Math.min(1.4, f.dead * 3));
+      g.lineWidth = Math.max(2, s * 0.03); g.strokeStyle = '#050505'; g.lineJoin = 'round';
+      const P = (pts, fill) => { g.beginPath(); pts.forEach(([px, py], i) => (i ? g.lineTo(px * s, -py * s) : g.moveTo(px * s, -py * s))); g.closePath(); g.fillStyle = fill; g.fill(); g.stroke(); };
+      P([[-0.18, 0], [-0.2, 0.85], [0.2, 0.85], [0.18, 0]], '#3a3a3a');                          // ноги
+      P([[-0.24, 0.85], [-0.27, 1.45], [0.27, 1.45], [0.24, 0.85]], '#6e6e6e');                  // корпус
+      P([[-0.2, 0.95], [-0.22, 1.38], [0.22, 1.38], [0.2, 0.95]], '#555');                       // разгрузка
+      g.beginPath(); g.ellipse(0, -1.6 * s, 0.13 * s, 0.16 * s, 0, 0, 7); g.fillStyle = '#141414'; g.fill(); g.stroke(); // балаклава
+      g.fillStyle = '#d8d8d8'; g.fillRect(-0.07 * s, -1.63 * s, 0.14 * s, 0.035 * s);          // прорезь глаз
+      // руки и оружие, направленные на нас
+      const aim = f.state === 'aim' || f.state === 'fire';
+      P([[0.22, 1.38], [0.3, aim ? 1.3 : 1.05], [0.14, aim ? 1.26 : 1.0]], '#2a2a2a');
+      P([[-0.22, 1.38], [-0.1, 1.28], [-0.2, 1.2]], '#2a2a2a');
+      g.fillStyle = '#111'; g.fillRect(-0.05 * s, -(aim ? 1.34 : 1.1) * s, 0.42 * s * f.flip, 0.09 * s); g.strokeRect(-0.05 * s, -(aim ? 1.34 : 1.1) * s, 0.42 * s * f.flip, 0.09 * s);
+      // вспышка выстрела
+      if (f.state === 'fire' && Math.sin(st.t * 45 + f.seed * 9) > 0) {
+        g.globalCompositeOperation = 'lighter';
+        const fx = 0.37 * s * f.flip, fy = -1.3 * s, r = s * (0.35 + Math.random() * 0.2);
+        const rg = g.createRadialGradient(fx, fy, 0, fx, fy, r);
+        rg.addColorStop(0, 'rgba(255,255,230,1)'); rg.addColorStop(0.3, 'rgba(255,210,90,.9)'); rg.addColorStop(1, 'rgba(255,140,30,0)');
+        g.fillStyle = rg; g.beginPath(); g.arc(fx, fy, r, 0, 7); g.fill();
+        g.globalCompositeOperation = 'source-over';
+      }
+      g.restore();
+    }
 
     function shoot() {
-      if (st.reload > 0) return;
-      if (st.ammo <= 0) { sfx.empty?.(); reload(); return; }
-      st.ammo--; st.recoil = 1; st.cool = 0.075; muzzleLight.intensity = 6; snd.shot('smg');
-      // попадание: ближайшая вспышка у прицела на экране
-      const w = c2.clientWidth, h = c2.clientHeight;
-      const sx = (st.aim.x + 1) / 2 * w, sy = (st.aim.y + 1) / 2 * h;
-      for (const f of st.flashes) {
-        tmp.copy(f.pos).project(camera);
-        const fx = (tmp.x + 1) / 2 * w, fy = (1 - tmp.y) / 2 * h;
-        if (Math.hypot(fx - sx, fy - sy) < Math.min(w, h) * 0.07) { f.dead = true; st.kills++; if (Math.random() < 0.5) say(['Лёг.', 'Минус один.', 'Есть!', 'Держу!'][Math.floor(Math.random() * 4)]); break; }
-      }
-      st.flashes = st.flashes.filter((f) => !f.dead);
+      if (st.reload > 0 || st.coverK > 0.3) return;
+      if (st.ammo <= 0) { reload(); return; }
+      st.ammo--; st.recoil = 1; st.cool = 0.085; snd.loud('smg'); st.flash = 1; st.shake = Math.max(st.shake, 0.15);
+      const w = c2.clientWidth, h = c2.clientHeight, sx = (st.aim.x + 1) / 2 * w, sy = (st.aim.y + 1) / 2 * h;
+      // попадание по видимой части рейдера (ближние — первыми)
+      const hit = st.foes.filter((f) => !f.dead && f.up > 0.4).sort((a, b) => b.z - a.z).find((f) => {
+        const b = foeBox(f, w, h);
+        return Math.abs(sx - b.x) < 0.3 * b.s && sy > b.top - 0.1 * b.s && sy < b.bottom;
+      });
+      if (hit) {
+        const b = foeBox(hit, w, h), head = sy < b.top + 0.35 * b.s;
+        hit.hp -= head ? 1 : 0.45;
+        splat(sx, sy, head ? 1.4 : 0.8, b.s); snd.meat();
+        if (hit.hp <= 0) { hit.dead = 0.001; st.kills++; if (head) say('В голову.'); snd.fall(); }
+      } else st.splats.push({ x: sx, y: sy, r: 3, dust: 1, t: 0 });
     }
+    function splat(x, y, k, s) { for (let i = 0; i < 6 * k; i++) st.splats.push({ x: x + (Math.random() - 0.5) * s * 0.2, y: y + (Math.random() - 0.5) * s * 0.2, r: (0.02 + Math.random() * 0.05) * s * k, vx: (Math.random() - 0.5) * 80, vy: -Math.random() * 60, t: 0 }); }
 
-    // ---------- 2D руки на костях ----------
-    // кость: [длина, угол] от родителя; рисуем сегменты брони поверх
-    function drawArms(w, h) {
-      const s = Math.min(w, h) / 400, rec = st.recoil, sway = Math.sin(st.t * 1.7) * 3 + Math.sin(st.t * 0.9) * 2;
-      const ax = st.aim.x * 40 * s, ay = st.aim.y * 30 * s;
-      // точка хвата оружия
-      const gx = w * 0.7 + ax + sway * s, gy = h * 0.82 + ay + rec * 14 * s + Math.cos(st.t * 1.7) * 2 * s;
-      const tilt = 0.42 + st.aim.x * 0.08 - rec * 0.06 + (st.reload > 0 ? Math.sin(st.reload * 4) * 0.25 + 0.4 : 0);
-      const bone = (x, y, len, ang) => [x + Math.cos(ang) * len, y + Math.sin(ang) * len];
-      // правая рука: плечо за кадром справа снизу → локоть → кисть на рукояти
-      const rs = [w * 0.98, h * 1.1], rh = [gx + 20 * s, gy + 34 * s];
-      const re = ik(rs, rh, 150 * s, 130 * s, 1);
-      // левая рука: плечо слева снизу → кисть на цевье
-      const fore = bone(gx, gy, -120 * s, tilt);
-      const ls = [w * 0.2, h * 1.15], lh = [fore[0] + 10 * s, fore[1] + 16 * s];
-      const le = ik(ls, lh, 190 * s, 150 * s, -1);
-      limb(ls, le, lh, s, true);
-      drawGun(gx, gy, tilt, s);
-      limb(rs, re, rh, s, false);
-    }
-    // двухзвенная ИК: плечо a, кисть c, длины l1 l2
+    // ---------- руки и спрайт оружия ----------
     function ik(a, c, l1, l2, bend) {
       const dx = c[0] - a[0], dy = c[1] - a[1], d = Math.min(Math.hypot(dx, dy), l1 + l2 - 1);
       const ang = Math.atan2(dy, dx), k = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d))));
       return [a[0] + Math.cos(ang + bend * k) * l1, a[1] + Math.sin(ang + bend * k) * l1];
     }
-    // сегмент брони: толстая пластина с тёмной кромкой и зелёным отблеском, как на референсе
-    function plate(a, b, wA, wB, col) {
+    function sleeve(a, b, wA, wB) {
       const ang = Math.atan2(b[1] - a[1], b[0] - a[0]), nx = -Math.sin(ang), ny = Math.cos(ang);
-      g.beginPath();
-      g.moveTo(a[0] + nx * wA, a[1] + ny * wA); g.lineTo(b[0] + nx * wB, b[1] + ny * wB);
-      g.lineTo(b[0] - nx * wB, b[1] - ny * wB); g.lineTo(a[0] - nx * wA, a[1] - ny * wA); g.closePath();
-      const gr = g.createLinearGradient(a[0] + nx * wA, a[1] + ny * wA, a[0] - nx * wA, a[1] - ny * wA);
-      gr.addColorStop(0, col[0]); gr.addColorStop(0.5, col[1]); gr.addColorStop(1, col[2]);
-      g.fillStyle = gr; g.fill(); g.strokeStyle = '#0a0c0b'; g.lineWidth = 3; g.stroke();
+      g.beginPath(); g.moveTo(a[0] + nx * wA, a[1] + ny * wA); g.lineTo(b[0] + nx * wB, b[1] + ny * wB); g.lineTo(b[0] - nx * wB, b[1] - ny * wB); g.lineTo(a[0] - nx * wA, a[1] - ny * wA); g.closePath();
+      g.fillStyle = '#1b1d1c'; g.fill(); g.strokeStyle = '#000'; g.lineWidth = 4; g.stroke();
+      // складки брони
+      g.strokeStyle = '#3a403c'; g.lineWidth = 3;
+      for (let k = 1; k < 4; k++) { const t = k / 4, x = a[0] + (b[0] - a[0]) * t, y = a[1] + (b[1] - a[1]) * t, ww = wA + (wB - wA) * t; g.beginPath(); g.moveTo(x + nx * ww * 0.8, y + ny * ww * 0.8); g.lineTo(x - nx * ww * 0.6, y - ny * ww * 0.6); g.stroke(); }
     }
-    const ARMOR = ['#3c4a44', '#56675c', '#1c2320'], GLOVE = ['#2a2d2c', '#3e4442', '#141615'];
-    function limb(sh, el, hand, s, left) {
-      plate(sh, el, 58 * s, 44 * s, ARMOR);                       // плечо — массивная пластина
-      g.fillStyle = '#6cff9a'; g.globalAlpha = 0.25; g.beginPath(); g.arc(el[0], el[1], 20 * s, 0, 7); g.fill(); g.globalAlpha = 1; // зелёный отблеск на локте
-      plate(el, hand, 40 * s, 30 * s, ARMOR);                      // предплечье
-      for (let k = 1; k < 4; k++) { const t = k / 4, x = el[0] + (hand[0] - el[0]) * t, y = el[1] + (hand[1] - el[1]) * t; g.strokeStyle = 'rgba(0,0,0,.5)'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 30 * s, 0, 7); g.stroke(); }
-      g.fillStyle = GLOVE[1]; g.strokeStyle = '#0a0c0b'; g.lineWidth = 3;
-      g.beginPath(); g.ellipse(hand[0], hand[1], 30 * s, 24 * s, left ? -0.3 : 0.4, 0, 7); g.fill(); g.stroke(); // кулак в перчатке
-    }
-    function drawGun(x, y, a, s) {
-      g.save(); g.translate(x, y); g.rotate(a);
-      const R = (px, py, pw, ph, c) => { g.fillStyle = c; g.fillRect(px * s, py * s, pw * s, ph * s); g.strokeStyle = '#050606'; g.lineWidth = 2; g.strokeRect(px * s, py * s, pw * s, ph * s); };
-      R(-150, -34, 190, 44, '#262a2c');          // ствольная коробка
-      R(-230, -24, 90, 26, '#1d2022');           // цевьё
-      R(-262, -18, 36, 14, '#111314');           // ствол-компенсатор
-      R(20, -44, 70, 14, '#1a1d1f');             // планка / прицел
-      R(-40, 8, 34, 64, '#18191a');              // магазин
-      R(34, 4, 30, 50, '#202324');               // рукоять
-      R(40, -24, 90, 30, '#232628');             // приклад
-      // жёлтый индикатор боезапаса и зелёный светодиод — как на референсе
-      const n = Math.ceil((st.ammo / MAG) * 10);
-      for (let i = 0; i < 10; i++) { g.fillStyle = i < n ? '#ffd62a' : '#3a3410'; g.fillRect((-140 + i * 12) * s, -30 * s, 8 * s, 5 * s); }
-      g.fillStyle = st.reload > 0 ? '#ff4030' : '#40ff70'; g.fillRect(-100 * s, -8 * s, 6 * s, 10 * s);
+    function fist(p, r, a) { g.save(); g.translate(p[0], p[1]); g.rotate(a); g.beginPath(); g.ellipse(0, 0, r * 1.2, r, 0, 0, 7); g.fillStyle = '#242624'; g.fill(); g.strokeStyle = '#000'; g.lineWidth = 4; g.stroke(); g.strokeStyle = '#444'; g.lineWidth = 2; for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(-r * 0.6, i * r * 0.35); g.lineTo(r * 0.5, i * r * 0.35); g.stroke(); } g.restore(); }
+    function drawArms(w, h) {
+      const s = Math.min(w, h) / 360, rec = st.recoil, ck = st.coverK;
+      const sway = Math.sin(st.t * 1.6) * 3 * s;
+      // оружие: спрайт 32×32, крупно, стволом в коридор; в укрытии уходит вниз
+      const gx = w * 0.73 + st.aim.x * 30 * s + sway, gy = h * 0.8 + st.aim.y * 22 * s + rec * 12 * s + ck * h * 0.45;
+      const ang = 0.4 + st.aim.x * 0.12 - rec * 0.08 + ck * 0.5 + (st.reload > 0 ? 0.5 + Math.sin(st.reload * 6) * 0.15 : 0);
+      const S = 6 * s;                               // масштаб пикселя спрайта
+      // левая рука под цевьё
+      const fore = [gx + Math.cos(ang + Math.PI) * 11 * S, gy + Math.sin(ang + Math.PI) * 11 * S + 3 * S];
+      const ls = [w * 0.28, h * 1.25], le = ik(ls, fore, 160 * s, 150 * s, -1);
+      sleeve(ls, le, 46 * s, 36 * s); sleeve(le, fore, 36 * s, 26 * s); fist(fore, 22 * s, ang);
+      // спрайт: пиксели без сглаживания
+      g.save(); g.translate(gx, gy); g.rotate(ang); g.scale(-1, 1);
+      g.imageSmoothingEnabled = false;
+      if (gun.complete && gun.naturalWidth) g.drawImage(gun, -16 * S, -16 * S, 32 * S, 32 * S);
+      g.restore();
       // вспышка у дула
-      if (st.recoil > 0.7) {
+      if (rec > 0.6) {
+        const mx = gx + Math.cos(ang + Math.PI) * 17 * S, my = gy + Math.sin(ang + Math.PI) * 17 * S - 2 * S;
         g.globalCompositeOperation = 'lighter';
-        const fx = -270 * s, rg = g.createRadialGradient(fx, -11 * s, 0, fx, -11 * s, 60 * s);
-        rg.addColorStop(0, 'rgba(255,240,200,1)'); rg.addColorStop(0.3, 'rgba(255,170,60,.8)'); rg.addColorStop(1, 'rgba(255,100,20,0)');
-        g.fillStyle = rg; g.beginPath(); g.moveTo(fx, -11 * s);
-        for (let i = 0; i < 9; i++) { const aa = Math.PI + (i - 4) * 0.25, r = (i % 2 ? 30 : 70) * s * (0.7 + Math.random() * 0.5); g.lineTo(fx + Math.cos(aa) * r, -11 * s + Math.sin(aa) * r); }
+        const rg = g.createRadialGradient(mx, my, 0, mx, my, 70 * s);
+        rg.addColorStop(0, 'rgba(255,255,230,1)'); rg.addColorStop(0.25, 'rgba(255,210,100,.9)'); rg.addColorStop(1, 'rgba(255,130,20,0)');
+        g.fillStyle = rg; g.beginPath(); g.moveTo(mx, my);
+        for (let i = 0; i < 10; i++) { const a = ang + Math.PI + (i - 4.5) * 0.28, r = (i % 2 ? 26 : 70) * s * (0.7 + Math.random() * 0.5); g.lineTo(mx + Math.cos(a) * r, my + Math.sin(a) * r); }
         g.fill(); g.globalCompositeOperation = 'source-over';
       }
-      g.restore();
-    }
-
-    // вспышки рейдеров: реалистичная звезда + ореол + дым
-    function drawFlashes(w, h) {
-      g.globalCompositeOperation = 'lighter';
-      for (const f of st.flashes) {
-        const on = Math.sin(f.t * 38 + f.seed) > 0.2; if (!on) continue;
-        tmp.copy(f.pos).project(camera); if (tmp.z > 1) continue;
-        const x = (tmp.x + 1) / 2 * w, y = (1 - tmp.y) / 2 * h, r = Math.min(w, h) * (0.03 + Math.random() * 0.02);
-        const rg = g.createRadialGradient(x, y, 0, x, y, r * 2.5);
-        rg.addColorStop(0, 'rgba(255,250,220,1)'); rg.addColorStop(0.2, 'rgba(255,200,90,.9)'); rg.addColorStop(1, 'rgba(255,120,30,0)');
-        g.fillStyle = rg; g.beginPath(); g.arc(x, y, r * 2.5, 0, 7); g.fill();
-        g.strokeStyle = 'rgba(255,230,160,.9)'; g.lineWidth = 2;
-        for (let i = 0; i < 4; i++) { const a = f.seed + i * Math.PI / 2 + Math.random() * 0.3, l = r * (1.5 + Math.random() * 2); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
-      }
-      g.globalCompositeOperation = 'source-over';
+      // правая рука на рукояти
+      const grip = [gx + Math.cos(ang) * 2 * S - Math.sin(ang) * 5 * S, gy + Math.sin(ang) * 2 * S + Math.cos(ang) * 5 * S];
+      const rs = [w * 1.05, h * 1.2], re = ik(rs, grip, 150 * s, 130 * s, 1);
+      sleeve(rs, re, 54 * s, 40 * s); sleeve(re, grip, 40 * s, 28 * s); fist(grip, 24 * s, ang + 0.4);
     }
 
     // ---------- цикл ----------
     let last = performance.now(), raf = 0;
-    const hum = storm.start(); hum.set(0.2);
+    const hum = storm.start(); hum.set(0.15);
     function frame(now) {
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       if (st.over) return;
       st.t += dt;
       const w = c2.clientWidth, h = c2.clientHeight;
-      if (c2.width !== w) { c2.width = w; c2.height = h; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
-      // стрельба
+      if (c2.width !== w || c2.height !== h) { c2.width = w; c2.height = h; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+      // укрытие и стрельба
+      st.coverK += ((st.cover ? 1 : 0) - st.coverK) * Math.min(1, dt * 10);
+      cov.classList.toggle('on', st.cover);
+      if (st.cover && st.ammo < MAG && st.reload <= 0) reload();
       st.cool -= dt; if (st.fire && st.cool <= 0) shoot();
       st.recoil = Math.max(0, st.recoil - dt * 9);
       if (st.reload > 0) { st.reload -= dt; if (st.reload <= 0) { st.ammo = MAG; storm.lock(); } }
-      // рейдеры: вспышки чаще к концу
-      st.next -= dt; if (st.next <= 0) { spawn(); st.next = Math.max(0.35, 1.3 - st.t / 60) * (0.6 + Math.random() * 0.8); }
-      for (const f of st.flashes) {
-        f.t += dt;
-        if (Math.random() < dt * 8) { flashLight.position.copy(f.pos); flashLight.intensity = 4; }
-        if (f.t > f.life) { f.dead = true; st.hp -= 7 + Math.random() * 6; st.shake = 1; st.blood = 1; snd.shot('smg'); storm.gust(); }
+      // рейдеры: прячутся → поднимаются → целятся → стреляют → прячутся
+      const hard = 1 + st.t / DURATION;
+      for (const f of st.foes) {
+        if (f.dead) { f.dead += dt; if (f.dead > 3) { f.dead = 0; f.hp = 1; f.state = 'hide'; f.up = 0; f.t = 2 + Math.random() * 3; } continue; }
+        f.t -= dt;
+        const target = f.state === 'hide' ? 0 : 1;
+        f.up += (target - f.up) * Math.min(1, dt * 6);
+        if (f.t > 0) continue;
+        if (f.state === 'hide') { f.state = 'aim'; f.t = (0.9 + Math.random() * 0.6) / hard; }
+        else if (f.state === 'aim') { f.state = 'fire'; f.t = 0.7 + Math.random() * 0.5; f.shot = 0; }
+        else if (f.state === 'fire') { f.state = 'hide'; f.t = (1.5 + Math.random() * 2.5) / hard; }
       }
-      st.flashes = st.flashes.filter((f) => !f.dead);
-      flashLight.intensity *= 0.8; muzzleLight.intensity *= 0.6;
-      st.shake = Math.max(0, st.shake - dt * 3); st.blood = Math.max(0, st.blood - dt * 0.8);
-      // камера: отдача, тряска, лёгкий поворот за прицелом
-      camera.rotation.set(-st.aim.y * 0.06 + st.recoil * 0.015 + (Math.random() - 0.5) * st.shake * 0.03, -st.aim.x * 0.08 + (Math.random() - 0.5) * st.shake * 0.03, 0);
-      lamps.forEach(([m, l], i) => { const on = Math.sin(st.t * 3 + i * 1.3) > -0.7 || Math.random() < 0.5; l.intensity = on ? 3 : 0.3; });
+      // огонь рейдеров: попадают, если мы не в укрытии
+      for (const f of st.foes) if (f.state === 'fire' && !f.dead) {
+        f.shot = (f.shot || 0) - dt;
+        if (f.shot <= 0) {
+          f.shot = 0.18; snd.loud(Math.random() < 0.7 ? 'smg' : 'shotgun');
+          if (st.coverK < 0.5 && Math.random() < 0.28) { st.hp -= 3 + Math.random() * 3; st.shake = 1; st.blood = 1; st.flash = 1; snd.meat(); }
+        }
+      }
+      st.shake = Math.max(0, st.shake - dt * 3); st.blood = Math.max(0, st.blood - dt);
+      // камера: в укрытии присели, тряска, лёгкий поворот за прицелом
+      camera.position.set(st.coverK * 0.35, 1.6 - st.coverK * 0.7, 0);
+      camera.rotation.set(-st.aim.y * 0.05 + st.recoil * 0.012 + (Math.random() - 0.5) * st.shake * 0.04, -st.aim.x * 0.07 + (Math.random() - 0.5) * st.shake * 0.04, st.coverK * 0.08);
+      st.flash = Math.max(0, (st.flash || 0) - dt * 6);
+      const zoom = 1 + Math.sin(st.t * 1.3) * 0.03 + Math.sin(st.t * 3.7) * 0.015 + st.shake * 0.05;
+      const blur = Math.max(0, Math.sin(st.t * 0.9) * 1.6 + st.blood * 2);
+      root.style.setProperty('--z', zoom.toFixed(3)); root.style.setProperty('--bl', `${blur.toFixed(1)}px`); root.style.setProperty('--fl', st.flash.toFixed(2));
       renderer.render(scene, camera);
       // 2D
       g.clearRect(0, 0, w, h);
-      drawFlashes(w, h);
+      for (const f of [...st.foes].sort((a, b) => a.z - b.z)) drawFoe(f, w, h);
+      // кровь и пыль от попаданий
+      st.splats = st.splats.filter((p) => (p.t += dt) < (p.dust ? 0.4 : 1.2));
+      for (const p of st.splats) {
+        if (p.dust) { g.fillStyle = `rgba(200,200,200,${0.6 - p.t * 1.5})`; g.beginPath(); g.arc(p.x, p.y, p.r + p.t * 30, 0, 7); g.fill(); continue; }
+        p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt;
+        g.fillStyle = `rgba(190,0,0,${1 - p.t / 1.2})`; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.fill();
+      }
       drawArms(w, h);
       // прицел
-      const cx = (st.aim.x + 1) / 2 * w, cy = (st.aim.y + 1) / 2 * h, cr = 10 + st.recoil * 8;
-      g.strokeStyle = 'rgba(255,220,200,.8)'; g.lineWidth = 2;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { g.beginPath(); g.moveTo(cx + dx * cr, cy + dy * cr); g.lineTo(cx + dx * (cr + 10), cy + dy * (cr + 10)); g.stroke(); }
+      if (st.coverK < 0.3) {
+        const cx = (st.aim.x + 1) / 2 * w, cy = (st.aim.y + 1) / 2 * h, cr = 9 + st.recoil * 8;
+        g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, cr, 0, 7); g.stroke();
+        g.fillStyle = '#e02020'; g.fillRect(cx - 2, cy - 2, 4, 4);
+      }
       // HUD
-      st.sci = Math.max(0, 20 - Math.floor(st.t / (DURATION / 20)));
-      $('.sh-hp').textContent = `ТЕЛО ${Math.max(0, Math.round(st.hp))}%`;
-      $('.sh-time').textContent = `${Math.ceil(DURATION - st.t)} С`;
-      $('.sh-sci').textContent = `У ЧЕЛНОКА: ${20 - st.sci} / 20`;
-      $('.sh-ammo').textContent = st.reload > 0 ? '· · ·' : `${st.ammo} / ${MAG}`;
-      $('.sh-blood').style.opacity = String(Math.min(1, st.blood * 0.7 + (1 - st.hp / HP) * 0.5));
-      if (st.ammo <= 5 && st.ammo > 0 && st.cool < 0 && !say.low) { say.low = 1; say(`Пять патронов. Четыре. Три.`, 'warn'); }
-      if (st.ammo > 5) say.low = 0;
+      st.sci = Math.min(SCI, Math.floor((st.t / DURATION) * SCI));
+      $('.sh-life b').style.width = `${Math.max(0, st.hp)}%`;
+      $('.sh-time').textContent = `${Math.ceil(DURATION - st.t)}`;
+      $('.sh-sci').textContent = `У ЧЕЛНОКА ${st.sci}/${SCI}`;
+      $('.sh-kills').textContent = String(st.kills);
+      $('.sh-ammo').innerHTML = st.reload > 0 ? 'ПЕРЕЗАРЯДКА' : `${'▮'.repeat(Math.ceil(st.ammo / 4))}<em>${st.ammo}</em>`;
+      $('.sh-blood').style.opacity = String(Math.min(1, st.blood * 0.8 + (1 - st.hp / HP) * 0.4));
       if (st.hp <= 0) return end(false);
       if (st.t >= DURATION) return end(true);
       raf = requestAnimationFrame(frame);
@@ -230,8 +265,8 @@ export default {
       win ? storm.captured() : storm.alarm();
       setTimeout(() => done(win), 2600);
     }
-    say('Держать коридор. Пока они не у челнока.');
+    say('Держать коридор, пока они не у челнока.');
     raf = requestAnimationFrame(frame);
-    return () => { st.over = true; cancelAnimationFrame(raf); hum.stop(); removeEventListener('keydown', kd); renderer.dispose(); };
+    return () => { st.over = true; cancelAnimationFrame(raf); hum.stop(); removeEventListener('keydown', kd); removeEventListener('keyup', kd); renderer.dispose(); };
   },
 };

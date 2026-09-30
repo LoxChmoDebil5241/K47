@@ -651,3 +651,11 @@ body.no-fx .post, body.no-fx #reader::before { display: none; }
 .sh-blood { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(circle, transparent 40%, rgba(140,0,0,.85) 100%); }
 .sh-root .sh-msg { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); margin: 0; font: clamp(8px, 2.2vw, 12px)/1.4 var(--f-pixel); color: #fff; opacity: 0; transition: opacity .4s; pointer-events: none; text-align: center; }
 .sh-root .sh-msg.on { opacity: 1; } .sh-root .sh-msg.warn { color: #ff8070; }
+.sh-root .sh-3d, .sh-root .sh-2d { transform: scale(var(--z, 1)); filter: blur(var(--bl, 0)) brightness(calc(1 + var(--fl, 0) * .8)); }
+.sh-root .sh-3d { filter: grayscale(1) contrast(1.25) blur(var(--bl, 0)) brightness(calc(1 + var(--fl, 0) * .8)); }
+.sh-life { display: flex; align-items: center; gap: 6px; } .sh-life i { width: 120px; height: 8px; background: #300; box-shadow: 0 0 0 1px #000; } .sh-life b { display: block; height: 100%; background: #d8d8d8; }
+.sh-kills { position: absolute; left: 12px; top: 40px; font: clamp(16px, 5vw, 26px)/1 var(--f-pixel); color: #ffd62a; text-shadow: 2px 2px 0 #000; pointer-events: none; }
+.sh-root .sh-ammo { color: #fff; } .sh-ammo em { font-style: normal; margin-left: 8px; }
+.sh-cover { position: absolute; left: 12px; bottom: max(12px, env(safe-area-inset-bottom)); font: clamp(8px, 2vw, 11px)/1 var(--f-pixel); color: #ffd62a; background: rgba(0,0,0,.6); border: 2px solid #ffd62a; padding: 16px 18px; }
+.sh-cover.on { background: #ffd62a; color: #000; }
+.sh-root .sh-reload { padding: 12px 16px; font-size: 16px; }
