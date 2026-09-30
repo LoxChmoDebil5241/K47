@@ -4,20 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
-  <title>K47 · Кубы 3D</title>
+  <title>K47 · Кубы</title>
   <link rel="stylesheet" href="./src/platformer/platformer.css" />
 </head>
 <body>
   <canvas id="pf"></canvas>
-  <div id="hud">
-    <div id="hp"><div id="hpbar"></div><span id="hptxt"></span></div>
-    <div id="inv"></div>
-    <div id="info"></div>
+  <div id="pad">
+    <div class="grp"><button data-k="left">◀</button><button data-k="right">▶</button></div>
+    <div class="grp"><button data-k="attack">⚡</button><button data-k="jump">▲</button></div>
   </div>
-  <div id="shout"></div>
-  <div id="stick"><div id="knob"></div></div>
-  <div id="btns"><button data-k="attack">⚡</button><button data-k="jump">▲</button></div>
-  <div id="over" hidden><h1></h1><p>Коснись экрана, чтобы начать заново</p></div>
   <a id="exit" href="./index.html">✕</a>
   <script type="module" src="./src/platformer/platformer.js"></script>
 </body>
