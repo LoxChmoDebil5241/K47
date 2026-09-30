@@ -585,7 +585,7 @@ export function startWar(ctx) {
   function handbook(tab) {
     if (tab === 'goal') return li([
       'Мы — третья сторона. Исполняем запросы НТ и СНК своими рейдерами, но держим их влияние в равновесии.',
-      'Весь пролог — 30 минут. В конце равновесие должно быть в зелёной зоне (перекос до 25%).',
+      'Весь пролог — 10 минут. В конце равновесие должно быть в зелёной зоне (перекос до 25%).',
       `Перекос больше 50% дольше ${RED_TIME} с — провал сразу.`,
       'Влияние стороны = её клетки (вышка и блок-пост +1, шахта +2) × сила стороны.',
       'Запросы: разведка, захват, подкрепление, проход колонны, зачистка — на любой из 4 точек. Отказ −12 силы заказчика, успех +10, провал −6.',
@@ -1004,7 +1004,7 @@ export function startWar(ctx) {
       const u = pick(idle); if (u) bark(u, u.stance === 'fortify' ? 'fortify' : 'wait');
     }
     if (!W.pending && !W.queue && W.t > W.nextReq && W.contracts.length < 3) {
-      const req = makeRequest(); W.nextReq = W.t + 50 + Math.random() * 30;
+      const req = makeRequest(); W.nextReq = W.t + 35 + Math.random() * 20;
       if (req) arrive(req);
     }
     influence();
