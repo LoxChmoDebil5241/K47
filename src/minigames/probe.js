@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { sfx, storm } from '../audio.js';
 import { noise, fbm, ridge, smooth } from './noise.js';
 import { startWar } from './raid/war.js';
+import { startQuick } from './raid/quick.js';
 
 // Пролог «Ол-12-П» — разведка и раздел влияния.
 // Часть 1 (до 3 мин): голографическая спектрограмма ледяной планеты — вращаем, приближаем.
@@ -414,7 +415,7 @@ export default {
     let warCtl = null;
     function part2() {
       st.part2 = true; st.stage = 'war'; info.innerHTML = '';
-      warCtl = startWar({
+      const ctx = {
         root, scene, camera, orb, canvas: cv, info, bottom, onSphere,
         setOrbit, marker, clearMarkers, say,
         unmark(m) { m.el.remove(); const i = markers.indexOf(m); if (i >= 0) markers.splice(i, 1); },
@@ -423,7 +424,17 @@ export default {
         flash() { root.classList.remove('pr-cut'); void root.offsetWidth; root.classList.add('pr-cut'); },
         stage(t) { $('.pr-stage').textContent = t; },
         end: (w, text) => end(w, text),
-      });
+      };
+      // выбор режима: быстрый (16 узлов, приказы кнопками) или тактический (сектора, отряды, пешки)
+      const pickBox = document.createElement('div'); pickBox.className = 'pr-mode';
+      pickBox.innerHTML = `<b>РАЗДЕЛ ВЛИЯНИЯ</b><p>Как командовать активом?</p>
+        <button data-m="quick">БЫСТРЫЕ ПРИКАЗЫ<small>16 узлов на планете, актив — кнопками</small></button>
+        <button data-m="war">ТАКТИКА<small>сектора, отряды, пешки, бой по гексам</small></button>`;
+      root.appendChild(pickBox);
+      pickBox.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('pointerdown', (e) => {
+        e.stopPropagation(); sfx.confirm(); pickBox.remove();
+        warCtl = b.dataset.m === 'war' ? startWar(ctx) : startQuick(ctx);
+      }));
     }
 
     // ---------- цикл ----------
@@ -482,9 +493,11 @@ export default {
         if (left <= 0 && st.stage !== 'cut') fail('Время на разведку вышло.');
       } else {
         const left = TOTAL - st.t; $('.pr-time').textContent = fmt(left);
-        warCtl.update(paused ? 0 : dt, dt);
-        if (st.over) return;
-        if (left <= 0) { const [w0, text] = warCtl.result(); return end(w0, text); }
+        if (warCtl) {
+          warCtl.update(paused ? 0 : dt, dt);
+          if (st.over) return;
+          if (left <= 0) { const [w0, text] = warCtl.result(); return end(w0, text); }
+        }
       }
       renderer.render(scene, camera);
       raf = requestAnimationFrame(frame);
