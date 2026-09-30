@@ -17,7 +17,7 @@ export default {
     root.innerHTML = `<canvas class="sh-3d"></canvas><canvas class="sh-2d"></canvas>
       <div class="sh-hud"><div class="sh-life"><span>ТЕЛО</span><i><b></b></i></div><span class="sh-time"></span><span class="sh-sci"></span></div>
       <div class="sh-kills"></div><div class="sh-ammo"></div>
-      <button class="sh-cover"><i>▼</i> УКРЫТИЕ</button><button class="sh-reload">⟳</button>
+      <button class="sh-cover" hidden><i>▼</i> УКРЫТИЕ</button><button class="sh-reload">⟳</button>
       <div class="sh-blood"></div><p class="sh-msg"></p>`;
     const $ = (q) => root.querySelector(q);
     const c3 = $('.sh-3d'), c2 = $('.sh-2d'), g = c2.getContext('2d');
@@ -125,7 +125,7 @@ export default {
     const st = {
       t: 0, hp: HP, ammo: MAG, spare: SPARE, slow: 1, hell: false, hellIntro: 0, walk: 0, reload: 0, kills: 0, over: false, recoil: 0, cover: false, coverK: 0,
       aim: { x: 0, y: -0.05 }, fire: false, cool: 0, shake: 0, blood: 0, sci: 0, splats: [],
-      foes: COVERS.map(([x, z, w, h], i) => ({ i, x: x + (x < 0 ? 0.25 : -0.25), z: z - 0.35, coverH: h, state: 'hide', t: 1 + i * 0.8 + Math.random(), up: 0, hp: 1, flip: x < 0 ? 1 : -1, dead: 0, seed: Math.random(), wpn: ['smg', 'shotgun', 'lmg', 'smg', 'rifle'][i], shots: 0 })),
+      foes: COVERS.slice(0, 3).map(([x, z, w, h], i) => ({ i, x: x + (x < 0 ? 0.25 : -0.25), z: z - 0.35, coverH: h, state: 'hide', t: 1 + i * 0.8 + Math.random(), up: 0, hp: 1, flip: x < 0 ? 1 : -1, dead: 0, seed: Math.random(), wpn: ['smg', 'shotgun', 'lmg', 'smg', 'rifle'][i], shots: 0 })),
     };
     const say = (t, cls = '') => { const m = $('.sh-msg'); m.textContent = t; m.className = `sh-msg on ${cls}`; clearTimeout(say.t); say.t = setTimeout(() => (m.className = 'sh-msg'), 1800); };
     const tmp = new THREE.Vector3();
@@ -159,7 +159,8 @@ export default {
       g.save();
       // обрезка по верху укрытия — рейдер «за» ящиком
       g.beginPath(); g.rect(0, 0, w, b.bottom + (f.dead ? 999 : 0)); g.clip();
-      g.translate(x, y); if (f.dead) g.rotate(f.flip * Math.min(1.4, f.dead * 3));
+      if (f.dead > 0.45) { g.restore(); return; }
+      g.translate(x, y); if (f.dead) { g.translate(0, -f.dead * s * 0.6); g.scale(1, Math.max(0.1, 1 - f.dead * 2)); }
       g.lineWidth = Math.max(2, s * 0.03); g.strokeStyle = '#050505'; g.lineJoin = 'round';
       const P = (pts, fill) => { g.beginPath(); pts.forEach(([px, py], i) => (i ? g.lineTo(px * s, -py * s) : g.moveTo(px * s, -py * s))); g.closePath(); g.fillStyle = fill; g.fill(); g.stroke(); };
       P([[-0.2, 0], [-0.22, 0.85], [-0.02, 0.85], [-0.04, 0]], '#353535'); P([[0.04, 0], [0.02, 0.85], [0.22, 0.85], [0.2, 0]], '#303030'); // ноги
@@ -195,19 +196,20 @@ export default {
 
     // «И ГРЯНУЛ АД»: затемнение, медленная надпись, выход из-за угла, контраст, рейдеры бегут
     function startHell() {
-      st.hellIntro = 5.5; st.hellEnd = performance.now() + 5500; st.cover = false; hum.set(0.6);
+      st.hellIntro = 5.5; st.hellEnd = performance.now() + 5500; hum.set(0.6);
       const t = document.createElement('div'); t.className = 'sh-hell'; t.textContent = TXT.hell; root.appendChild(t);
       setTimeout(() => t.classList.add('on'), 400); setTimeout(() => t.classList.add('off'), 4600); setTimeout(() => t.remove(), 6000);
       sample('guns/lmg_bolt_closed', 1.5);
     }
     // финал: джаггернаут с одним большим щитком вместо визора и пулемётом
     function juggernaut() {
-      st.jug = { t: 0, z: -6, fire: 0, dead: false }; st.fire = false;
+      st.jug = { t0: performance.now(), t: 0, z: camera.position.z - 7, fire: 0, dead: false }; st.cover = false; cov.hidden = true; st.fire = false;
       st.foes.forEach((f) => (f.state = 'hide'));
       say('');
     }
     function drawJug(w, h) {
       const J = st.jug, [x, yF] = proj(0.2, 0, J.z, w, h), [, yH] = proj(0.2, 2.1, J.z, w, h), s = (yF - yH) / 2.1;
+      if (!(s > 1)) return;
       g.save(); g.translate(x, yF); g.lineWidth = Math.max(3, s * 0.03); g.strokeStyle = '#000'; g.lineJoin = 'round';
       const P = (pts, c) => { g.beginPath(); pts.forEach(([a, b], i) => (i ? g.lineTo(a * s, -b * s) : g.moveTo(a * s, -b * s))); g.closePath(); g.fillStyle = c; g.fill(); g.stroke(); };
       P([[-0.35, 0], [-0.38, 0.9], [0.38, 0.9], [0.35, 0]], '#2a2a2a');
@@ -222,7 +224,8 @@ export default {
     }
     // true — кадр закончен (финал играет сам)
     function jugFrame(dt, now, w, h) {
-      const J = st.jug; J.t += dt;
+      const J = st.jug; J.t = (now - J.t0) / 1000;
+      J.z = Math.min(J.z, camera.position.z - 2.5);
       if (J.t < 2.2) { J.z += dt * 1.2; if ((J.step = (J.step || 0) - dt) <= 0) { J.step = 0.55; snd.heart?.(); st.shake = 0.6; } }
       else if (J.t < 4.2) {
         J.fire = 1; st.slow = 0.35;
@@ -250,12 +253,13 @@ export default {
       g.globalCompositeOperation = 'source-over';
     }
     const shouts = [];
-    function shout(f, kind) { if (shouts.some((q) => q.f === f && q.t < 1)) return; const l = TXT.raiders[kind]; shouts.push({ f, text: l[Math.floor(Math.random() * l.length)], t: 0 }); }
+    function shout(f, kind) { if (shouts.length >= 2 || shouts.some((q) => q.f === f)) return; const l = TXT.raiders[kind]; shouts.push({ f, text: l[Math.floor(Math.random() * l.length)], t: 0 }); }
     function drawShouts(w, h) {
       for (const q of shouts) {
         q.t += 1 / 60; const b = foeBox(q.f, w, h), a = Math.min(1, (2 - q.t) * 2);
-        g.globalAlpha = Math.max(0, a); g.font = `${Math.max(9, Math.min(14, b.s * 0.12))}px "Press Start 2P", monospace`; g.textAlign = 'center';
-        g.fillStyle = '#000'; g.fillText(q.text, b.x + 2, b.top - 12 + 2 - q.t * 10); g.fillStyle = '#fff'; g.fillText(q.text, b.x, b.top - 12 - q.t * 10);
+        const pop = 1 + Math.max(0, 0.4 - q.t) * 1.5, jx = (Math.random() - 0.5) * 3, jy = (Math.random() - 0.5) * 3;
+        g.globalAlpha = Math.max(0, a); g.font = `${Math.round(Math.max(10, Math.min(16, b.s * 0.13)) * pop)}px "Press Start 2P", monospace`; g.textAlign = 'center';
+        g.fillStyle = '#000'; g.fillText(q.text, b.x + 2 + jx, b.top - 12 + 2 - q.t * 14 + jy); g.fillStyle = '#ff2a2a'; g.fillText(q.text, b.x + jx, b.top - 12 - q.t * 14 + jy);
         g.globalAlpha = 1;
       }
       for (let i = shouts.length - 1; i >= 0; i--) if (shouts[i].t > 2) shouts.splice(i, 1);
@@ -273,9 +277,9 @@ export default {
       });
       if (hit) {
         const b = foeBox(hit, w, h), head = sy < b.top + 0.35 * b.s;
-        hit.hp -= head ? 1 : 0.45;
+        hit.hp -= head ? 0.5 : 0.18;
         splat(sx, sy, head ? 1.4 : 0.8, b.s); meat();
-        if (hit.hp <= 0) { hit.dead = 0.001; st.kills++; shout(hit, 'down'); snd.fall(); }
+        if (hit.hp <= 0) { hit.dead = 0.001; st.kills++; if (Math.random() < 0.4) shout(hit, 'down'); snd.fall(); }
       } else { st.splats.push({ x: sx, y: sy, r: 3, dust: 1, t: 0 }); sample(Math.random() < 0.6 ? 'guns/bullet_hit' : `guns/ric${1 + Math.floor(Math.random() * 5)}`, 0.9); }
     }
     function splat(x, y, k, s) { for (let i = 0; i < 6 * k; i++) st.splats.push({ x: x + (Math.random() - 0.5) * s * 0.2, y: y + (Math.random() - 0.5) * s * 0.2, r: (0.02 + Math.random() * 0.05) * s * k, vx: (Math.random() - 0.5) * 80, vy: -Math.random() * 60, t: 0 }); }
@@ -352,17 +356,18 @@ export default {
       // рейдеры: прячутся → поднимаются → целятся → стреляют → прячутся
       const hard = 1 + st.t / DURATION;
       for (const f of st.foes) {
-        if (f.dead) { f.dead += dt; if (f.dead > 3) { f.dead = 0; f.hp = 1; f.state = 'hide'; f.up = 0; f.t = 2 + Math.random() * 3; } continue; }
+        if (st.jug) { f.state = 'hide'; f.up = 0; continue; }
+        if (f.dead) { f.dead += dt; if (f.dead > 3) { f.dead = 0; f.hp = 1; f.gone = false; f.state = 'hide'; f.up = 0; f.t = 2 + Math.random() * 3; } continue; }
         f.t -= dt;
-        if (st.hell && !f.dead && Math.random() < dt * 0.5) shout(f, 'hell');
+        if (st.hell && !f.dead && Math.random() < dt * 0.12) shout(f, 'hell');
         if (st.hell) { f.z -= dt * 0.8; if (st.hellIntro <= 0 && f.state === 'aim') f.t -= dt; }
         const target = f.state === 'hide' ? 0 : 1;
         f.up += (target - f.up) * Math.min(1, dt * 6);
         if (f.t > 0) continue;
-        if (f.state === 'hide') { if (Math.random() < (st.hell ? 0.9 : 0.55)) shout(f, st.hell ? 'hell' : st.kills > 3 ? 'shock' : 'fire'); f.state = 'aim'; f.t = (0.9 + Math.random() * 0.6) / hard; }
+        if (f.state === 'hide') { if (Math.random() < (st.hell ? 0.35 : 0.18)) shout(f, st.hell ? 'hell' : st.kills > 3 ? 'shock' : 'fire'); f.state = 'aim'; f.t = (0.9 + Math.random() * 0.6) / hard; }
         else if (f.state === 'aim') { f.state = 'fire'; f.t = 0.7 + Math.random() * 0.5; f.shot = 0; }
         else if (f.state === 'fire') {
-          if (++f.shots % 2 === 0) { f.state = 'reload'; f.t = 1.6; sample(f.wpn === 'shotgun' ? 'guns/shotgun_insert' : f.wpn === 'lmg' ? 'guns/lmg_magin' : 'guns/smg_magin', 0.9, 0.95); setTimeout(() => sample('guns/smg_cock', 0.8), 900); shout(f, 'reload'); }
+          if (++f.shots % 2 === 0) { f.state = 'reload'; f.t = 1.6; sample(f.wpn === 'shotgun' ? 'guns/shotgun_insert' : f.wpn === 'lmg' ? 'guns/lmg_magin' : 'guns/smg_magin', 0.9, 0.95); setTimeout(() => sample('guns/smg_cock', 0.8), 900); if (Math.random() < 0.35) shout(f, 'reload'); }
           else { f.state = 'hide'; f.t = (1.5 + Math.random() * 2.5) / hard; }
         }
         else if (f.state === 'reload') { f.state = 'hide'; f.t = 0.3; }
@@ -371,13 +376,14 @@ export default {
       for (const f of st.foes) if (f.state === 'fire' && !f.dead) {
         f.shot = (f.shot || 0) - dt;
         if (f.shot <= 0) {
-          if (Math.random() < 0.5) setTimeout(() => sample(Math.random() < 0.7 ? 'guns/bullet_hit' : `guns/ric${1 + Math.floor(Math.random() * 5)}`, 0.6), 80); { const w = c2.clientWidth, h = c2.clientHeight, b = foeBox(f, w, h); tracer(b.x + ({ smg: 0.4, shotgun: 0.52, lmg: 0.6, rifle: 0.58 }[f.wpn]) * b.s * f.flip, b.yF - 1.32 * b.s, w * (0.3 + Math.random() * 0.4), h * (0.55 + Math.random() * 0.5), '255,170,80'); } f.shot = 0.18; const gs = { smg: 'guns/c-20r', shotgun: 'guns/shotgun', lmg: 'guns/lmg', rifle: 'guns/rifle' }[f.wpn]; (sample(gs, 1.2, 0.95) || snd.loud('smg'));
+          if (Math.random() < 0.5) setTimeout(() => sample(Math.random() < 0.7 ? 'guns/bullet_hit' : `guns/ric${1 + Math.floor(Math.random() * 5)}`, 0.6), 80); { const w = c2.clientWidth, h = c2.clientHeight, b = foeBox(f, w, h); tracer(b.x + ({ smg: 0.4, shotgun: 0.52, lmg: 0.6, rifle: 0.58 }[f.wpn]) * b.s * f.flip, b.yF - 1.32 * b.s, w * (0.3 + Math.random() * 0.4), h * (0.55 + Math.random() * 0.5), '255,170,80'); } f.shot = f.wpn === 'shotgun' ? 0.9 : 0.18; const gs = { smg: 'guns/c-20r', shotgun: 'guns/shotgun', lmg: 'guns/lmg', rifle: 'guns/rifle' }[f.wpn]; (sample(gs, 1.2, 0.95) || snd.loud('smg'));
           if (st.coverK < 0.5 && st.hellIntro <= 0 && Math.random() < (st.hell ? 0.12 : 0.28)) { st.hp -= 3 + Math.random() * 3; st.shake = 1; st.blood = 1; st.flash = 1; hurt(); }
         }
       }
+      if (st.ammo === 0 && cov.hidden) { cov.hidden = false; sfx.click(); }
       st.shake = Math.max(0, st.shake - dt * 3); st.blood = Math.max(0, st.blood - dt);
       // камера: в укрытии присели, тряска, лёгкий поворот за прицелом
-      if (st.hell) st.walk = Math.min(8, st.walk + dt * 0.35);
+      if (st.hell && !st.cover) st.walk = Math.min(6, st.walk + dt * 0.35);
       const dark = st.hellIntro > 0 ? 1 : 0;
       camera.position.set(st.coverK * 0.62, 1.6 - st.coverK * 0.15 + Math.sin(st.walk * 6) * 0.03, 0.1 + st.coverK * 0.25 - st.walk);
       root.style.setProperty('--dark', String(dark));

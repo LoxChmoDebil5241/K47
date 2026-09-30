@@ -140,13 +140,14 @@ const notebookUI = setupNotebookUI({
 });
 desk.notebook.setPage(...notebookUI.current());
 
-let dropping = false; // гранула выпала из рук
-desk.jar.onSwallow = () => {
-  if (dropping) {
-    // упала на пол: стук, персонаж сам смотрит вниз, через 5 секунд ругается
+let dropping = false, dropLook = false, forceDrop = false; // гранула выпала из рук; взгляд на пол
+desk.jar.onSwallow = (floor) => {
+  if (floor) {
+    // упала на пол: стук, смотрим на неё, 3 с тишины, «Блядь...», и обратно к банке
     sfx.tick();
-    look.y = 0.55; look.x = 0.1;
-    setTimeout(() => { say('Блядь...'); dropping = false; }, 5000);
+    dropLook = true;
+    setTimeout(() => say('Блядь...'), 3000);
+    setTimeout(() => { dropLook = false; look.x = look.y = 0; dropping = false; renderBar(); }, 4800);
     return;
   }
   sfx.crunch(); setTimeout(() => sfx.swallow(), 700);
@@ -211,8 +212,8 @@ const ACTIONS = {
     if (dropping) return;
     const mouth = camera.position.clone().add(tmpV.set(0, -0.1, 0).applyQuaternion(camera.quaternion)).addScaledVector(camera.getWorldDirection(new THREE.Vector3()), 0.12);
     // 5% — пальцы не удержали, гранула летит на пол
-    if (Math.random() < 0.05) { dropping = true; mouth.set(camera.position.x + 0.25, 0.02, camera.position.z + 0.1); }
-    if (desk.jar.eat(mouth)) { sfx.rattle(0.6); save.set('rpkEaten', desk.jar.eaten); } else sfx.empty();
+    if (forceDrop || Math.random() < 0.05) { forceDrop = false; dropping = true; mouth.set(camera.position.x + 0.25, 0.02, camera.position.z + 0.1); }
+    if (desk.jar.eat(mouth, dropping)) { sfx.rattle(0.6); save.set('rpkEaten', desk.jar.eaten); } else { sfx.empty(); dropping = false; }
     renderBar();
   },
   ptt() { desk.radio.ptt(); sfx.ptt(); },
@@ -401,6 +402,7 @@ function frame() {
     else baseQ.slerpQuaternions(move.fromQ, move.toQ, k);
   }
   // осмотр пальцем — с инерцией, чтобы голова не дёргалась
+  if (dropLook) { look.y = 0.9; look.x = 0.35; } // смотрим на упавшую гранулу
   smoothLook.x += (look.x - smoothLook.x) * Math.min(1, dt * 5);
   smoothLook.y += (look.y - smoothLook.y) * Math.min(1, dt * 5);
   lookE.set(-smoothLook.y, -smoothLook.x, 0); lookQ.setFromEuler(lookE);
@@ -438,6 +440,8 @@ frame();
 
 // для автотестов: экранные координаты предмета (0..1)
 window.__k47 = {
+  dropTest: () => { forceDrop = true; ACTIONS.eat(); },
+  act: (a) => ACTIONS[a](),
   where(name) {
     const o = room.hits[name]; if (!o) return null;
     const v = o.getWorldPosition(new THREE.Vector3()).project(camera);

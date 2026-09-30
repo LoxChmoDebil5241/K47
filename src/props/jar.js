@@ -127,11 +127,11 @@ export function buildJar(eatenInit = 0) {
     putDown() { st.wantHeld = false; st.wantOpen = false; },
     toggleLid() { st.wantOpen = !st.wantOpen; return st.wantOpen; },
     // гранула вылетает из горлышка к губам камеры; mouth — мировая точка «рта»
-    eat(mouth) {
+    eat(mouth, floor = false) {
       if (!st.wantOpen || eaten >= RPK_TOTAL || fly.t < 1) return false;
       eaten++; showGrains();
       fly.from.copy(body.localToWorld(new THREE.Vector3(0, H + 0.01, 0)));
-      fly.to.copy(mouth); fly.t = 0; flyMesh.visible = true;
+      fly.to.copy(mouth); fly.t = 0; fly.floor = floor; flyMesh.visible = true;
       return true;
     },
     onSwallow: null,
@@ -150,7 +150,12 @@ export function buildJar(eatenInit = 0) {
         flyMesh.position.y += Math.sin(e * Math.PI) * 0.06;
         flyMesh.rotation.set(fly.t * 9, fly.t * 6, 0);
         flyMesh.scale.setScalar(1.6);
-        if (fly.t === 1) { flyMesh.visible = false; this.onSwallow?.(); }
+        if (fly.t === 1) {
+          flyMesh.visible = false;
+          // упала на пол — остаётся лежать отдельной гранулой
+          if (fly.floor) { const g = flyMesh.clone(); g.visible = true; g.position.y = fly.to.y; g.scale.setScalar(2.4); flyMesh.parent.add(g); }
+          this.onSwallow?.(fly.floor);
+        }
       }
       // гранулы шуршат и стучат, пока банку крутят — чем быстрее, тем чаще
       rattleCd -= dt;
