@@ -95,3 +95,14 @@
   license: "CC-BY-4.0"
   copyright: "Created by altemark"
   source: "https://freesound.org/people/altemark/sounds/39747"
+
+## Effects (gib, splat, meatslap)
+/tmp/claude-0/-home-user-K47/146f2f8f-cc86-570f-bd63-dd1e66dfb3b2/scratchpad/ss14/Resources/Audio/Effects/Footsteps/attributions.yml-- files:
+/tmp/claude-0/-home-user-K47/146f2f8f-cc86-570f-bd63-dd1e66dfb3b2/scratchpad/ss14/Resources/Audio/Effects/Footsteps/attributions.yml:  - gib_step.ogg
+/tmp/claude-0/-home-user-K47/146f2f8f-cc86-570f-bd63-dd1e66dfb3b2/scratchpad/ss14/Resources/Audio/Effects/Footsteps/attributions.yml:  - meatslap.ogg
+/tmp/claude-0/-home-user-K47/146f2f8f-cc86-570f-bd63-dd1e66dfb3b2/scratchpad/ss14/Resources/Audio/Effects/Footsteps/attributions.yml-  license: "CC-BY-SA-3.0"
+/tmp/claude-0/-home-user-K47/146f2f8f-cc86-570f-bd63-dd1e66dfb3b2/scratchpad/ss14/Resources/Audio/Effects/Footsteps/attributions.yml-  copyright: "Taken from https://github.com/tgstation/tgstation"
+/tmp/claude-0/-home-user-K47/146f2f8f-cc86-570f-bd63-dd1e66dfb3b2/scratchpad/ss14/Resources/Audio/Effects/Footsteps/attributions.yml-  source: "https://github.com/tgstation/tgstation/blob/34d5ab2e46e3fb4dd9d7475f587d33441df9651c/sound/effects"
+/tmp/claude-0/-home-user-K47/146f2f8f-cc86-570f-bd63-dd1e66dfb3b2/scratchpad/ss14/Resources/Audio/Effects/Footsteps/attributions.yml-
+
+## Текстура вспышки src/assets/muzzle.png — projectiles.rsi/muzzle_bullet, CC-BY-SA-3.0, cev-eris (discordia-space/CEV-Eris)

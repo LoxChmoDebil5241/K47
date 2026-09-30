@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 import { sfx, storm, war as snd, sample, preload } from '../audio.js';
 import smgUrl from '../assets/smg.png';
+import muzzleUrl from '../assets/muzzle.png';
+import TXT from '../story/shield.json';
 
 // Глава 10 «Щит» — К-21 держит коридор, пока учёные уходят к челноку. Стиль — как Sierra 7:
 // серый мир с жирными контурами, яркая только кровь и вспышки.
 // 3D: только помещение. 2D: рейдеры за укрытиями, руки на костях (ИК) и пиксельный спрайт ПП.
 // Касание — выстрел в точку. «УКРЫТИЕ» (удерживать) — не попадут, но и стрелять нельзя; в укрытии — перезарядка.
-const DURATION = 60, MAG = 32, HP = 100, SCI = 20;
+const DURATION = 60, MAG = 30, SPARE = 1, HP = 100, SCI = 20;
 
 export default {
   name: 'Щит',
@@ -21,15 +23,16 @@ export default {
     const c3 = $('.sh-3d'), c2 = $('.sh-2d'), g = c2.getContext('2d');
     const gun = new Image(); gun.src = smgUrl;
     // звуки из SS14: наш ПП, стволы рейдеров, мясо, рикошеты, магазин, затвор
-    const SND = ['guns/smg', 'guns/c-20r', 'guns/lmg', 'guns/shotgun', 'guns/rifle', 'guns/bullet_meat1', 'guns/bullet_meat2', 'guns/bullet_meat3', 'guns/bullet_meat4', 'guns/ric1', 'guns/ric2', 'guns/ric3', 'guns/smg_magin', 'guns/smg_cock', 'guns/empty', 'guns/casing_fall_1', 'guns/casing_fall_2', 'guns/casing_fall_3', 'guns/lmg_bolt_open', 'guns/lmg_bolt_closed'];
+    const SND = ['guns/smg', 'guns/c-20r', 'guns/lmg', 'guns/shotgun', 'guns/rifle', 'guns/bullet_meat1', 'guns/bullet_meat2', 'guns/bullet_meat3', 'guns/bullet_meat4', 'guns/ric1', 'guns/ric2', 'guns/ric3', 'guns/smg_magin', 'guns/smg_cock', 'guns/empty', 'guns/casing_fall_1', 'guns/casing_fall_2', 'guns/casing_fall_3', 'guns/lmg_bolt_open', 'guns/lmg_bolt_closed', 'guns/gib1', 'guns/gib2', 'guns/gib3', 'guns/splat', 'guns/meatslap', 'guns/shotgun_insert', 'guns/lmg_magin'];
     preload(SND);
     const pickS = (...a) => a[Math.floor(Math.random() * a.length)];
+    const hurt = () => sample(['guns/gib1', 'guns/gib2', 'guns/gib3', 'guns/splat', 'guns/meatslap'][Math.floor(Math.random() * 5)], 1.3) || snd.meat();
     const meat = () => sample(`guns/bullet_meat${1 + Math.floor(Math.random() * 4)}`, 1.4) || snd.meat();
 
     // ---------- 3D коридор: плоские серые материалы + контуры рёбер ----------
     const renderer = new THREE.WebGLRenderer({ canvas: c3, antialias: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
-    const scene = new THREE.Scene(); scene.background = new THREE.Color(0x1a1a1a); scene.fog = new THREE.Fog(0x1a1a1a, 10, 34);
+    const scene = new THREE.Scene(); scene.background = new THREE.Color(0x050505); scene.fog = new THREE.Fog(0x050505, 3, 20);
     const camera = new THREE.PerspectiveCamera(60, 1, 0.05, 60);
     const L = 28, W = 3.4, H = 3;
     const flat = (c) => new THREE.MeshLambertMaterial({ color: c });
@@ -58,7 +61,19 @@ export default {
     // укрытия рейдеров: ящики, перевёрнутый стол, колонна
     const COVERS = [[-0.95, -5.5, 1, 0.9], [0.9, -7.5, 1.2, 1], [-0.7, -10, 0.9, 1.1], [0.85, -12.5, 1, 0.9], [-0.9, -15, 1.1, 1]];
     for (const [x, z, w, h] of COVERS) block(w, h, 0.6, x, h / 2, z, 0x5e5a52);
-    scene.add(new THREE.AmbientLight(0xffffff, 1.3));
+    block(1.3, H, 0.5, 1.15, H / 2, -0.6, 0x5c5c5c); // угол, за которым укрываемся
+    scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+    // коридор сложнее: кабели, решётки вентиляции, ниши, щитки, мусор, лужи; редкие мигающие лампы
+    const lampsL = [];
+    for (let z = -2; z > -L; z -= 3.2) {
+      const s2 = z % 2 ? 1 : -1;
+      block(0.03, 0.03, 3.2, s2 * (W / 2 - 0.3), H - 0.12 - Math.random() * 0.2, z - 1.6, 0x202020);
+      block(0.5, 0.35, 0.04, -s2 * (W / 2 - 0.04), 0.35, z, 0x3a3a3a);
+      if (Math.random() < 0.6) block(0.3 + Math.random() * 0.3, 0.15 + Math.random() * 0.3, 0.3, (Math.random() - 0.5) * W * 0.6, 0.1, z - Math.random() * 2, 0x4a4a4a);
+      if (Math.random() < 0.5) block(0.12, 0.5, 0.35, s2 * (W / 2 - 0.1), 1.4, z - 1, 0x2e2e2e);
+      const pl = new THREE.PointLight(0xffffff, 0, 6, 1.8); pl.position.set(0, H - 0.3, z); scene.add(pl); lampsL.push(pl);
+    }
+    for (let k = 0; k < 6; k++) { const p = new THREE.Mesh(new THREE.CircleGeometry(0.3 + Math.random() * 0.4, 12), new THREE.MeshStandardMaterial({ color: 0x0a0a0a, metalness: 0.9, roughness: 0.05 })); p.rotation.x = -Math.PI / 2; p.position.set((Math.random() - 0.5) * 2, 0.005, -2 - Math.random() * 20); scene.add(p); }
     const gunLight = new THREE.PointLight(0xffffff, 1.5, 2); camera.add(gunLight); gunLight.position.set(0.3, 0.3, 0);
     const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(1, 3, 2); scene.add(sun);
 
@@ -83,7 +98,7 @@ export default {
     const leds = [];
     for (let i = 0; i < 10; i++) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.008, 0.014), new THREE.MeshBasicMaterial({ color: 0xffd62a })); l.position.set(0.037, 0.03, -0.3 + i * 0.022); gunG.add(l); leds.push(l); }
     const led = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.02, 0.01), new THREE.MeshBasicMaterial({ color: 0x40ff70 })); led.position.set(0.037, 0, -0.02); gunG.add(led);
-    const flash = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.35), new THREE.MeshBasicMaterial({ color: 0xffd080, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, map: (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); const r = x.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, '#fff'); r.addColorStop(0.3, '#ffc860'); r.addColorStop(1, 'rgba(255,120,20,0)'); x.fillStyle = r; x.beginPath(); for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2, rr = i % 2 ? 12 : 32; x.lineTo(32 + Math.cos(a) * rr, 32 + Math.sin(a) * rr); } x.fill(); return new THREE.CanvasTexture(c); })() }));
+    const flash = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.35), new THREE.MeshBasicMaterial({ color: 0xffd080, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, map: (() => { const t = new THREE.TextureLoader().load(muzzleUrl); t.magFilter = THREE.NearestFilter; t.colorSpace = THREE.SRGBColorSpace; return t; })() }));
     flash.position.set(0, 0.005, -0.72); gunG.add(flash);
     const mlight = new THREE.PointLight(0xffc070, 0, 4, 1.5); mlight.position.set(0, 0, -0.8); gunG.add(mlight);
     // руки: бронированные рукава (пластины) и перчатки
@@ -108,9 +123,9 @@ export default {
 
     // ---------- состояние ----------
     const st = {
-      t: 0, hp: HP, ammo: MAG, reload: 0, kills: 0, over: false, recoil: 0, cover: false, coverK: 0,
+      t: 0, hp: HP, ammo: MAG, spare: SPARE, reload: 0, kills: 0, over: false, recoil: 0, cover: false, coverK: 0,
       aim: { x: 0, y: -0.05 }, fire: false, cool: 0, shake: 0, blood: 0, sci: 0, splats: [],
-      foes: COVERS.map(([x, z, w, h], i) => ({ i, x: x + (x < 0 ? 0.25 : -0.25), z: z - 0.35, coverH: h, state: 'hide', t: 1 + i * 0.8 + Math.random(), up: 0, hp: 1, flip: x < 0 ? 1 : -1, dead: 0, seed: Math.random() })),
+      foes: COVERS.map(([x, z, w, h], i) => ({ i, x: x + (x < 0 ? 0.25 : -0.25), z: z - 0.35, coverH: h, state: 'hide', t: 1 + i * 0.8 + Math.random(), up: 0, hp: 1, flip: x < 0 ? 1 : -1, dead: 0, seed: Math.random(), wpn: ['smg', 'shotgun', 'lmg', 'smg', 'rifle'][i], shots: 0 })),
     };
     const say = (t, cls = '') => { const m = $('.sh-msg'); m.textContent = t; m.className = `sh-msg on ${cls}`; clearTimeout(say.t); say.t = setTimeout(() => (m.className = 'sh-msg'), 1800); };
     const tmp = new THREE.Vector3();
@@ -125,7 +140,7 @@ export default {
     const coverOn = (e) => { e.preventDefault(); e.stopPropagation(); if (!st.cover) { st.cover = true; sfx.click(); } };
     const coverOff = (e) => { e?.stopPropagation(); st.cover = false; };
     cov.addEventListener('pointerdown', coverOn); cov.addEventListener('pointerup', coverOff); cov.addEventListener('pointercancel', coverOff); cov.addEventListener('pointerleave', coverOff);
-    const reload = () => { if (st.reload > 0 || st.ammo === MAG) return; st.reload = 1.5; sample('guns/lmg_bolt_open', 1.2); setTimeout(() => sample('guns/smg_magin', 1.3), 550); };
+    const reload = () => { if (st.reload > 0 || st.ammo === MAG) return; if (st.spare <= 0) { sample('guns/empty', 1); say('Магазинов больше нет.', 'warn'); return; } st.reload = 1.5; sample('guns/lmg_bolt_open', 1.2); setTimeout(() => sample('guns/smg_magin', 1.3), 550); };
     $('.sh-reload').addEventListener('pointerdown', (e) => { e.stopPropagation(); reload(); });
     const kd = (e) => { if (e.key === 'r' || e.key === 'к') reload(); if (e.key === ' ' || e.key === 'Shift') st.cover = e.type === 'keydown'; };
     addEventListener('keydown', kd); addEventListener('keyup', kd);
@@ -147,20 +162,29 @@ export default {
       g.translate(x, y); if (f.dead) g.rotate(f.flip * Math.min(1.4, f.dead * 3));
       g.lineWidth = Math.max(2, s * 0.03); g.strokeStyle = '#050505'; g.lineJoin = 'round';
       const P = (pts, fill) => { g.beginPath(); pts.forEach(([px, py], i) => (i ? g.lineTo(px * s, -py * s) : g.moveTo(px * s, -py * s))); g.closePath(); g.fillStyle = fill; g.fill(); g.stroke(); };
-      P([[-0.18, 0], [-0.2, 0.85], [0.2, 0.85], [0.18, 0]], '#3a3a3a');                          // ноги
-      P([[-0.24, 0.85], [-0.27, 1.45], [0.27, 1.45], [0.24, 0.85]], '#6e6e6e');                  // корпус
-      P([[-0.2, 0.95], [-0.22, 1.38], [0.22, 1.38], [0.2, 0.95]], '#555');                       // разгрузка
-      g.beginPath(); g.ellipse(0, -1.6 * s, 0.13 * s, 0.16 * s, 0, 0, 7); g.fillStyle = '#141414'; g.fill(); g.stroke(); // балаклава
-      g.fillStyle = '#d8d8d8'; g.fillRect(-0.07 * s, -1.63 * s, 0.14 * s, 0.035 * s);          // прорезь глаз
-      // руки и оружие, направленные на нас
-      const aim = f.state === 'aim' || f.state === 'fire';
-      P([[0.22, 1.38], [0.3, aim ? 1.3 : 1.05], [0.14, aim ? 1.26 : 1.0]], '#2a2a2a');
-      P([[-0.22, 1.38], [-0.1, 1.28], [-0.2, 1.2]], '#2a2a2a');
-      g.fillStyle = '#111'; g.fillRect(-0.05 * s, -(aim ? 1.34 : 1.1) * s, 0.42 * s * f.flip, 0.09 * s); g.strokeRect(-0.05 * s, -(aim ? 1.34 : 1.1) * s, 0.42 * s * f.flip, 0.09 * s);
+      P([[-0.2, 0], [-0.22, 0.85], [-0.02, 0.85], [-0.04, 0]], '#353535'); P([[0.04, 0], [0.02, 0.85], [0.22, 0.85], [0.2, 0]], '#303030'); // ноги
+      P([[-0.24, 0], [-0.24, 0.1], [-0.02, 0.1], [0, 0]], '#111'); P([[0.02, 0], [0.02, 0.1], [0.24, 0.1], [0.24, 0]], '#111');       // ботинки
+      P([[-0.22, 0.45], [-0.22, 0.6], [-0.03, 0.6], [-0.03, 0.45]], '#555');                                                        // наколенник
+      P([[-0.25, 0.85], [-0.28, 1.47], [0.28, 1.47], [0.25, 0.85]], '#6a6a6a');                                                      // корпус
+      P([[-0.21, 0.92], [-0.22, 1.4], [0.22, 1.4], [0.21, 0.92]], '#4c4c4c');                                                        // бронежилет
+      for (let k = 0; k < 3; k++) P([[-0.17 + k * 0.12, 1.0], [-0.17 + k * 0.12, 1.14], [-0.08 + k * 0.12, 1.14], [-0.08 + k * 0.12, 1.0]], '#3a3a3a'); // подсумки
+      P([[-0.25, 0.86], [-0.25, 0.92], [0.25, 0.92], [0.25, 0.86]], '#222');                                                         // ремень
+      P([[-0.34, 1.35], [-0.3, 1.5], [-0.16, 1.5], [-0.2, 1.35]], '#5a5a5a'); P([[0.34, 1.35], [0.3, 1.5], [0.16, 1.5], [0.2, 1.35]], '#5a5a5a'); // наплечники
+      g.beginPath(); g.ellipse(0, -1.6 * s, 0.13 * s, 0.16 * s, 0, 0, 7); g.fillStyle = '#141414'; g.fill(); g.stroke();             // балаклава
+      g.beginPath(); g.arc(0, -1.64 * s, 0.155 * s, Math.PI, 0); g.fillStyle = '#3c3c3c'; g.fill(); g.stroke();                       // каска
+      g.fillStyle = '#9a9a9a'; g.fillRect(-0.1 * s, -1.63 * s, 0.2 * s, 0.05 * s); g.strokeRect(-0.1 * s, -1.63 * s, 0.2 * s, 0.05 * s); // визор
+      // руки и оружие: целятся, стреляют, в перезарядке опускают ствол
+      const aim = f.state === 'aim' || f.state === 'fire', rl = f.state === 'reload';
+      const gy = aim ? 1.32 : rl ? 0.95 : 1.1, len = { smg: 0.42, shotgun: 0.55, lmg: 0.62, rifle: 0.6 }[f.wpn], thick = f.wpn === 'lmg' ? 0.13 : 0.09;
+      P([[0.22, 1.38], [0.3, gy], [0.14, gy - 0.06]], '#2a2a2a');
+      P([[-0.22, 1.38], [-0.1, gy + 0.02], [-0.2, gy - 0.1]], '#2a2a2a');
+      g.fillStyle = '#111'; g.fillRect(-0.05 * s, -(gy + 0.02) * s, len * s * f.flip, thick * s); g.strokeRect(-0.05 * s, -(gy + 0.02) * s, len * s * f.flip, thick * s);
+      if (f.wpn === 'lmg') { g.fillRect(0.05 * s * f.flip, -(gy - 0.08) * s, 0.14 * s * f.flip, 0.12 * s); }
+      if (rl) { g.fillStyle = '#222'; g.fillRect(0.05 * s * f.flip, -(gy - 0.2) * s, 0.06 * s, 0.14 * s); }
       // вспышка выстрела
       if (f.state === 'fire' && Math.sin(st.t * 45 + f.seed * 9) > 0) {
         g.globalCompositeOperation = 'lighter';
-        const fx = 0.37 * s * f.flip, fy = -1.3 * s, r = s * (0.35 + Math.random() * 0.2);
+        const fx = ({ smg: 0.4, shotgun: 0.52, lmg: 0.6, rifle: 0.58 }[f.wpn]) * s * f.flip, fy = -1.32 * s, r = s * (0.35 + Math.random() * 0.2);
         const rg = g.createRadialGradient(fx, fy, 0, fx, fy, r);
         rg.addColorStop(0, 'rgba(255,255,230,1)'); rg.addColorStop(0.3, 'rgba(255,210,90,.9)'); rg.addColorStop(1, 'rgba(255,140,30,0)');
         g.fillStyle = rg; g.beginPath(); g.arc(fx, fy, r, 0, 7); g.fill();
@@ -169,10 +193,21 @@ export default {
       g.restore();
     }
 
+    const shouts = [];
+    function shout(f, kind) { const l = TXT.raiders[kind]; shouts.push({ f, text: l[Math.floor(Math.random() * l.length)], t: 0 }); }
+    function drawShouts(w, h) {
+      for (const q of shouts) {
+        q.t += 1 / 60; const b = foeBox(q.f, w, h), a = Math.min(1, (2 - q.t) * 2);
+        g.globalAlpha = Math.max(0, a); g.font = `${Math.max(9, Math.min(14, b.s * 0.12))}px "Press Start 2P", monospace`; g.textAlign = 'center';
+        g.fillStyle = '#000'; g.fillText(q.text, b.x + 2, b.top - 12 + 2 - q.t * 10); g.fillStyle = '#fff'; g.fillText(q.text, b.x, b.top - 12 - q.t * 10);
+        g.globalAlpha = 1;
+      }
+      for (let i = shouts.length - 1; i >= 0; i--) if (shouts[i].t > 2) shouts.splice(i, 1);
+    }
     function shoot() {
       if (st.reload > 0 || st.coverK > 0.3) return;
       if (st.ammo <= 0) { sample('guns/empty', 1); reload(); return; }
-      st.ammo--; st.recoil = 1; st.cool = 0.085; (sample('guns/smg', 1.6) || snd.loud('smg')); if (Math.random() < 0.3) setTimeout(() => sample(`guns/casing_fall_${1 + Math.floor(Math.random() * 3)}`, 0.5), 250); st.flash = 1; st.shake = Math.max(st.shake, 0.15);
+      st.ammo--; st.recoil = 1; st.cool = 0.13; (sample('guns/smg', 1.6) || snd.loud('smg')); if (Math.random() < 0.3) setTimeout(() => sample(`guns/casing_fall_${1 + Math.floor(Math.random() * 3)}`, 0.5), 250); st.flash = 1; st.shake = Math.max(st.shake, 0.15);
       const w = c2.clientWidth, h = c2.clientHeight, sx = (st.aim.x + 1) / 2 * w, sy = (st.aim.y + 1) / 2 * h;
       // попадание по видимой части рейдера (ближние — первыми)
       const hit = st.foes.filter((f) => !f.dead && f.up > 0.4).sort((a, b) => b.z - a.z).find((f) => {
@@ -183,7 +218,7 @@ export default {
         const b = foeBox(hit, w, h), head = sy < b.top + 0.35 * b.s;
         hit.hp -= head ? 1 : 0.45;
         splat(sx, sy, head ? 1.4 : 0.8, b.s); meat();
-        if (hit.hp <= 0) { hit.dead = 0.001; st.kills++; if (head) say('В голову.'); snd.fall(); }
+        if (hit.hp <= 0) { hit.dead = 0.001; st.kills++; if (Math.random() < 0.5) shout(hit, 'down'); if (head) say('В голову.'); snd.fall(); }
       } else { st.splats.push({ x: sx, y: sy, r: 3, dust: 1, t: 0 }); if (Math.random() < 0.35) sample(`guns/ric${1 + Math.floor(Math.random() * 3)}`, 0.7); }
     }
     function splat(x, y, k, s) { for (let i = 0; i < 6 * k; i++) st.splats.push({ x: x + (Math.random() - 0.5) * s * 0.2, y: y + (Math.random() - 0.5) * s * 0.2, r: (0.02 + Math.random() * 0.05) * s * k, vx: (Math.random() - 0.5) * 80, vy: -Math.random() * 60, t: 0 }); }
@@ -247,10 +282,10 @@ export default {
       // укрытие и стрельба
       st.coverK += ((st.cover ? 1 : 0) - st.coverK) * Math.min(1, dt * 10);
       cov.classList.toggle('on', st.cover);
-      if (st.cover && st.ammo < MAG && st.reload <= 0) reload();
+      if (st.cover && st.ammo === 0 && st.reload <= 0 && st.spare > 0) reload();
       st.cool -= dt; if (st.fire && st.cool <= 0) shoot();
       st.recoil = Math.max(0, st.recoil - dt * 9);
-      if (st.reload > 0) { st.reload -= dt; if (st.reload <= 0) { st.ammo = MAG; sample('guns/lmg_bolt_closed', 1.3) || sample('guns/smg_cock', 1.2); } }
+      if (st.reload > 0) { st.reload -= dt; if (st.reload <= 0) { st.ammo = MAG; st.spare--; sample('guns/lmg_bolt_closed', 1.3) || sample('guns/smg_cock', 1.2); } }
       // рейдеры: прячутся → поднимаются → целятся → стреляют → прячутся
       const hard = 1 + st.t / DURATION;
       for (const f of st.foes) {
@@ -259,30 +294,34 @@ export default {
         const target = f.state === 'hide' ? 0 : 1;
         f.up += (target - f.up) * Math.min(1, dt * 6);
         if (f.t > 0) continue;
-        if (f.state === 'hide') { f.state = 'aim'; f.t = (0.9 + Math.random() * 0.6) / hard; }
+        if (f.state === 'hide') { if (Math.random() < 0.25) shout(f, st.kills > 3 ? 'shock' : 'fire'); f.state = 'aim'; f.t = (0.9 + Math.random() * 0.6) / hard; }
         else if (f.state === 'aim') { f.state = 'fire'; f.t = 0.7 + Math.random() * 0.5; f.shot = 0; }
-        else if (f.state === 'fire') { f.state = 'hide'; f.t = (1.5 + Math.random() * 2.5) / hard; }
+        else if (f.state === 'fire') {
+          if (++f.shots % 2 === 0) { f.state = 'reload'; f.t = 1.6; sample(f.wpn === 'shotgun' ? 'guns/shotgun_insert' : f.wpn === 'lmg' ? 'guns/lmg_magin' : 'guns/smg_magin', 0.9, 0.95); setTimeout(() => sample('guns/smg_cock', 0.8), 900); shout(f, 'reload'); }
+          else { f.state = 'hide'; f.t = (1.5 + Math.random() * 2.5) / hard; }
+        }
+        else if (f.state === 'reload') { f.state = 'hide'; f.t = 0.3; }
       }
       // огонь рейдеров: попадают, если мы не в укрытии
       for (const f of st.foes) if (f.state === 'fire' && !f.dead) {
         f.shot = (f.shot || 0) - dt;
         if (f.shot <= 0) {
-          f.shot = 0.18; const gs = pickS('guns/c-20r', 'guns/lmg', 'guns/rifle', 'guns/shotgun'); (sample(gs, 1.2, 0.95) || snd.loud('smg'));
-          if (st.coverK < 0.5 && Math.random() < 0.28) { st.hp -= 3 + Math.random() * 3; st.shake = 1; st.blood = 1; st.flash = 1; meat(); }
+          f.shot = 0.18; const gs = { smg: 'guns/c-20r', shotgun: 'guns/shotgun', lmg: 'guns/lmg', rifle: 'guns/rifle' }[f.wpn]; (sample(gs, 1.2, 0.95) || snd.loud('smg'));
+          if (st.coverK < 0.5 && Math.random() < 0.28) { st.hp -= 3 + Math.random() * 3; st.shake = 1; st.blood = 1; st.flash = 1; hurt(); }
         }
       }
       st.shake = Math.max(0, st.shake - dt * 3); st.blood = Math.max(0, st.blood - dt);
       // камера: в укрытии присели, тряска, лёгкий поворот за прицелом
-      camera.position.set(st.coverK * 0.35, 1.6 - st.coverK * 0.7, 0);
-      camera.rotation.set(-st.aim.y * 0.05 + st.recoil * 0.012 + (Math.random() - 0.5) * st.shake * 0.04, -st.aim.x * 0.07 + (Math.random() - 0.5) * st.shake * 0.04, st.coverK * 0.08);
+      camera.position.set(st.coverK * 0.62, 1.6 - st.coverK * 0.15, 0.1 + st.coverK * 0.25);
+      camera.rotation.set(-st.aim.y * 0.05 + st.recoil * 0.012 + (Math.random() - 0.5) * st.shake * 0.04, -st.aim.x * 0.07 + st.coverK * 0.12 + (Math.random() - 0.5) * st.shake * 0.04, st.coverK * 0.04);
       st.flash = Math.max(0, (st.flash || 0) - dt * 6);
       const zoom = 1 + Math.sin(st.t * 1.3) * 0.03 + Math.sin(st.t * 3.7) * 0.015 + st.shake * 0.05;
-      const blur = Math.max(0, Math.sin(st.t * 0.9) * 1.6 + st.blood * 2);
+      const blur = Math.max(0, Math.sin(st.t * 0.9) * 1.6 + st.blood * 2) + st.coverK * 4;
       root.style.setProperty('--z', zoom.toFixed(3)); root.style.setProperty('--bl', `${blur.toFixed(1)}px`); root.style.setProperty('--fl', st.flash.toFixed(2));
 
       // оружие: покачивание, отдача, укрытие, перезарядка
       const ck = st.coverK, rec = st.recoil, rl = st.reload > 0 ? Math.sin(Math.min(1, (1.5 - st.reload) / 1.5) * Math.PI) : 0;
-      gunG.position.set(0.24 + Math.sin(st.t * 1.6) * 0.006 + st.aim.x * 0.03, -0.2 + Math.cos(st.t * 3.2) * 0.004 - ck * 0.35 - rl * 0.12 - st.aim.y * 0.02, -0.62 + rec * 0.05);
+      gunG.position.set(0.13 + Math.sin(st.t * 1.6) * 0.006 + st.aim.x * 0.03, -0.16 + Math.cos(st.t * 3.2) * 0.004 - ck * 0.35 - rl * 0.12 - st.aim.y * 0.02, -0.5 + rec * 0.05);
       gunG.rotation.set(rec * 0.12 + ck * 0.6 + rl * 0.5 - st.aim.y * 0.12, -st.aim.x * 0.15 + 0.04, rl * 0.6 + ck * 0.3);
       flash.visible = rec > 0.6; flash.rotation.z = Math.random() * 6; flash.scale.setScalar(0.7 + Math.random() * 0.6); mlight.intensity = rec > 0.6 ? 5 : 0;
       leds.forEach((l, i) => (l.visible = i < Math.ceil((st.ammo / MAG) * 10)));
@@ -290,10 +329,15 @@ export default {
       vm.updateMatrixWorld(true);
       aimArm(armR, new THREE.Vector3(0.5, -0.6, 0.1), new THREE.Vector3(0, -0.13, 0.03));
       aimArm(armL, new THREE.Vector3(-0.3, -0.65, -0.1), new THREE.Vector3(0, -0.06, -0.4 + rl * 0.3));
+      lampsL.forEach((l, i) => (l.intensity = (Math.sin(st.t * (2 + i * 0.7) + i) > 0.3 || Math.random() < 0.03) ? 2.2 : 0.15));
       renderer.render(scene, camera);
       // 2D
       g.clearRect(0, 0, w, h);
+      const edgeX = proj(0.5, 1, -0.35, w, h)[0];
+      g.save(); if (st.coverK > 0.05) { g.beginPath(); g.rect(0, 0, Math.max(0, edgeX), h); g.clip(); }
       for (const f of [...st.foes].sort((a, b) => a.z - b.z)) drawFoe(f, w, h);
+      drawShouts(w, h);
+      g.restore();
       // кровь и пыль от попаданий
       st.splats = st.splats.filter((p) => (p.t += dt) < (p.dust ? 0.4 : 1.2));
       for (const p of st.splats) {
@@ -313,7 +357,7 @@ export default {
       $('.sh-time').textContent = `${Math.ceil(DURATION - st.t)}`;
       $('.sh-sci').textContent = `У ЧЕЛНОКА ${st.sci}/${SCI}`;
       $('.sh-kills').textContent = String(st.kills);
-      $('.sh-ammo').innerHTML = st.reload > 0 ? 'ПЕРЕЗАРЯДКА' : `${'▮'.repeat(Math.ceil(st.ammo / 4))}<em>${st.ammo}</em>`;
+      $('.sh-ammo').innerHTML = st.reload > 0 ? 'ПЕРЕЗАРЯДКА' : `${'▮'.repeat(Math.ceil(st.ammo / 3))}<em>${st.ammo}</em><small> +${st.spare * MAG}</small>`;
       $('.sh-blood').style.opacity = String(Math.min(1, st.blood * 0.8 + (1 - st.hp / HP) * 0.4));
       if (st.hp <= 0) return end(false);
       if (st.t >= DURATION) return end(true);
@@ -326,7 +370,8 @@ export default {
       setTimeout(() => done(win), 2600);
     }
     say('Держать коридор, пока они не у челнока.');
+    const thinkT = setInterval(() => { if (!st.over && Math.random() < 0.6) say(TXT.k21[Math.floor(Math.random() * TXT.k21.length)]); }, 11000);
     raf = requestAnimationFrame(frame);
-    return () => { st.over = true; cancelAnimationFrame(raf); hum.stop(); removeEventListener('keydown', kd); removeEventListener('keyup', kd); renderer.dispose(); };
+    return () => { clearInterval(thinkT); st.over = true; cancelAnimationFrame(raf); hum.stop(); removeEventListener('keydown', kd); removeEventListener('keyup', kd); renderer.dispose(); };
   },
 };

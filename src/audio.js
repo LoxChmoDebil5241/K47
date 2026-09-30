@@ -287,10 +287,10 @@ let fxBus = null;
 function bus() {
   if (fxBus || !ctx) return fxBus;
   // бас-буст → перегруз → компрессор-лимитер
-  const low = ctx.createBiquadFilter(); low.type = 'lowshelf'; low.frequency.value = 160; low.gain.value = 14;
+  const low = ctx.createBiquadFilter(); low.type = 'lowshelf'; low.frequency.value = 160; low.gain.value = 8;
   const mid = ctx.createBiquadFilter(); mid.type = 'peaking'; mid.frequency.value = 2500; mid.gain.value = 4;
   const drive = ctx.createWaveShaper(); const n = 1024, c = new Float32Array(n);
-  for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = Math.tanh(x * 2.2); }
+  for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = Math.tanh(x * 1.6); }
   drive.curve = c;
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -12; comp.ratio.value = 8; comp.attack.value = 0.002; comp.release.value = 0.15;
   const out = ctx.createGain(); out.gain.value = 1.6;
