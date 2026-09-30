@@ -348,3 +348,4 @@
 - splat0–6 — Resources/Textures/Fluids/puddle.rsi, CC-BY-SA-3.0, Alekshhh, potato1234x
 - sparks.png — Resources/Textures/Effects/sparks.rsi, CC0-1.0, deltanedas
 - muzzle.png — projectiles.rsi/muzzle_bullet, CC-BY-SA-3.0, CEV-Eris
+- floor.png — Tiles/Basic/Dark/dark-mono, plating.png — Tiles/plating (CC-BY-SA-3.0, tgstation), grating.png — Tiles/grating-maint (CC0-1.0, AftrLite), wall.png — Structures/Walls/solid.rsi/full (CC-BY-SA-3.0, rye-rice, 20nypercent, AftrLite)

@@ -9,7 +9,7 @@ const FX = import.meta.glob('../assets/fx/*.png', { eager: true, import: 'defaul
 // Глава 10 «Щит» — К-21 держит коридор, пока учёные уходят к челноку. Стиль — как Sierra 7:
 // серый мир с жирными контурами, яркие только кровь, свет рейдеров и вспышки.
 // 3D: помещение, оружие и руки. 2D: рейдеры, кровь, трассеры, искры.
-const DURATION = 60, MAG = 30, SPARE = 1, HP = 150, SCI = 20, RUN = 4.2;
+const DURATION = 60, MAG = 30, SPARE = 1, HP = 100, SCI = 20, RUN = 4.2;
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 export default {
@@ -54,17 +54,22 @@ export default {
     const EDGE = new THREE.LineBasicMaterial({ color: 0x0a0a0a });
     function block(w, h, d, x, y, z, c) {
       const geo = new THREE.BoxGeometry(w, h, d), m = new THREE.Mesh(geo, flat(c)); m.position.set(x, y, z); scene.add(m);
-      const e = new THREE.LineSegments(new THREE.EdgesGeometry(geo), EDGE); e.position.copy(m.position); scene.add(e);
+      const e = new THREE.LineSegments(new THREE.EdgesGeometry(geo), EDGE); m.add(e);
       return m;
     }
-    block(W, 0.1, L, 0, -0.05, -L / 2, 0x6a6a6a);               // пол
-    block(W, 0.1, L, 0, H + 0.05, -L / 2, 0x4a4a4a);            // потолок
-    block(0.1, H, L, -W / 2, H / 2, -L / 2, 0x8a8a8a);          // стены
-    block(0.1, H, L, W / 2, H / 2, -L / 2, 0x7e7e7e);
+    // текстуры SS14: тёмная плитка, стена, плейтинг на потолке, решётка на ящиках
+    const texM = (n, rx, ry, c = 0xffffff) => { const t = new THREE.TextureLoader().load(FX[`../assets/fx/${n}.png`]); t.magFilter = THREE.NearestFilter; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.colorSpace = THREE.SRGBColorSpace; return new THREE.MeshLambertMaterial({ map: t, color: c }); };
+    block(W, 0.1, L, 0, -0.05, -L / 2, 0x6a6a6a).material = texM('floor', W, L);
+    block(W, 0.1, L, 0, H + 0.05, -L / 2, 0x4a4a4a).material = texM('plating', W, L, 0x999999);
+    const wallM = texM('wall', L / 1.5, H / 1.5);
+    block(0.1, H, L, -W / 2, H / 2, -L / 2, 0x8a8a8a).material = wallM;
+    block(0.1, H, L, W / 2, H / 2, -L / 2, 0x7e7e7e).material = wallM;
+    const crateM = texM('grating', 1, 1, 0xbbbbbb);
     // двери, плинтусы, лампы, трубы — чтобы стены читались
+    const doors = [];
     for (let z = -4; z > -L; z -= 6) {
       for (const s of [-1, 1]) {
-        block(0.06, 2.1, 1, s * (W / 2 - 0.05), 1.05, z, 0x5a5a5a);
+        doors.push({ m: block(0.06, 2.1, 1, s * (W / 2 - 0.05), 1.05, z, 0x5a5a5a), s, z });
         block(0.04, 0.12, 0.12, s * (W / 2 - 0.1), 1.05, z + 0.35 * s, 0x2a2a2a);
       }
       block(0.5, 0.06, 0.25, 0, H - 0.04, z - 3, 0xeeeeee);
@@ -75,7 +80,8 @@ export default {
     block(W * 0.9, 0.1, 0.05, 0, 1.5, -L + 0.13, 0xc9a21a);     // жёлто-чёрная полоса на воротах
     // укрытия рейдеров: ящики, перевёрнутый стол, колонна
     const COVERS = [[-0.95, -30, 1, 1.0], [0.9, -35, 1.2, 1.1], [-0.7, -40, 0.9, 1.1], [0.85, -44, 1, 1], [-0.9, -48, 1.1, 1]];
-    for (const [x, z, w, h] of COVERS) block(w, h, 0.6, x, h / 2, z, 0x5e5a52);
+    for (const [x, z, w, h] of COVERS) block(w, h, 0.6, x, h / 2, z, 0x5e5a52).material = crateM;
+    for (const [x, z, w, h, r] of [[0.1, -31.5, 0.7, 0.7, 0.3], [-0.2, -33.2, 0.6, 0.55, -0.2], [1.1, -32.4, 0.6, 0.9, 0.1], [-1.2, -34.4, 0.7, 0.6, 0.4], [0.35, -34.1, 0.5, 1.2, 0]]) { const m = block(w, h, 0.6, x, h / 2, z, 0x595448); m.rotation.y = r; m.material = crateM; }
     block(1.3, H, 0.5, 1.15, H / 2, -0.6, 0x5c5c5c); // угол, за которым укрываемся
     scene.add(new THREE.AmbientLight(0xffffff, 0.35));
     // коридор сложнее: кабели, решётки вентиляции, ниши, щитки, мусор, лужи; редкие мигающие лампы
@@ -144,7 +150,8 @@ export default {
     const st = {
       t: 0, hp: HP, ammo: MAG, spare: SPARE, slow: 1, hell: false, hellIntro: 0, walk: 0, reload: 0, kills: 0, over: false, recoil: 0, cover: false, coverK: 0,
       aim: { x: 0, y: -0.05 }, fire: false, cool: 0, shake: 0, blood: 0, sci: 0, splats: [], kick: { x: 0, y: 0, r: 0 }, baseZ: 0.1, rushed: false,
-      foes: COVERS.slice(0, 3).map(([x, z, w, h], i) => { const fx0 = x + (x < 0 ? 0.25 : -0.25); return { i, x: fx0, x0: fx0, z: z - 0.35, cz: z - 0.35, coverH: h, state: 'hide', t: 1 + i * 0.8 + Math.random(), up: 0, hp: 1, flip: x < 0 ? 1 : -1, dead: 0, seed: Math.random(), wpn: ['smg', 'shotgun', 'lmg'][i], shots: 0, fl: 0, flr: 0, run: 0 }; }),
+      foes: [...COVERS.slice(0, 3).map(([x, z, w, h], i) => { const fx0 = x + (x < 0 ? 0.25 : -0.25); return { i, x: fx0, x0: fx0, z: z - 0.35, cz: z - 0.35, coverH: h, state: 'hide', t: 1 + i * 0.8 + Math.random(), up: 0, hp: 1, flip: x < 0 ? 1 : -1, dead: 0, seed: Math.random(), wpn: ['smg', 'shotgun', 'lmg'][i], shots: 0, fl: 0, flr: 0, run: 0 }; }),
+        { i: 3, door: true, x: -1.85, x0: -1.85, z: -16, cz: -999, coverH: 0, state: 'off', t: 0, up: 1, hp: 1, flip: 1, dead: 0, seed: 0.3, wpn: 'rifle', shots: 0, fl: 0, flr: 0, run: 0 }],
     };
     const say = (t, cls = '') => { const m = $('.sh-msg'); m.textContent = t; m.className = `sh-msg on ${cls}`; clearTimeout(say.t); say.t = setTimeout(() => (m.className = 'sh-msg'), 1800); };
     const tmp = new THREE.Vector3();
@@ -167,7 +174,7 @@ export default {
     // ---------- рейдер на экране: ноги, голова, масштаб и наклон (камера может лежать на боку) ----------
     function foeBox(f, w, h) {
       const away = Math.abs(f.z - f.cz) > 0.8;
-      const y0 = away ? 0 : -(1 - f.up) * 1.9;
+      const y0 = f.state === 'vault' ? f.lift || 0 : away ? 0 : -(1 - f.up) * 1.9;
       const [x, yF, nz] = proj(f.x, y0, f.z, w, h), [xH, yH] = proj(f.x, y0 + 1.75, f.z, w, h);
       const ux = xH - x, uy = yH - yF;
       return { x, yF, xH, yH, s: Math.hypot(ux, uy) / 1.75, ang: Math.atan2(ux, -uy), behind: nz > 1, bottom: away ? 1e5 : proj(f.x, f.coverH, f.cz + 0.3, w, h)[1] };
@@ -193,14 +200,23 @@ export default {
       const limb = (x1, y1, x2, y2, wd, fill) => { const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1, nx = -dy / L * wd / 2, ny = dx / L * wd / 2; P([[x1 + nx, y1 + ny], [x2 + nx, y2 + ny], [x2 - nx, y2 - ny], [x1 - nx, y1 - ny]], fill); };
       const hand = (x, y, blue) => { E(x, y, 0.055, 0.05, '#15161a'); g.fillStyle = blue ? '#8ad0ff' : '#ff5a48'; g.fillRect((x - 0.025) * s, -(y + 0.012) * s, 0.05 * s, 0.024 * s); glow(x, y, 0.14, blue ? '60,150,255' : '255,40,30', 0.9); };
       g.lineWidth = Math.max(1, s * 0.022); g.strokeStyle = '#000'; g.lineJoin = 'round';
+      const crouch = (f.state === 'hide' || f.state === 'reload' || f.state === 'peek') && Math.abs(f.z - f.cz) < 0.8 ? 1 : 0, vault = f.state === 'vault' ? f.vk : -1;
       const moving = f.state === 'rush' || f.state === 'walk' || f.state === 'flee', run = moving ? Math.sin(f.run) : 0;
       g.translate(0, -Math.abs(run) * 0.04 * s);
-      for (const [sx, k] of [[-1, 1], [1, -1]]) {                                    // ноги: на бегу колени по очереди вверх
+      if (vault >= 0) {                                                            // перекидывает ноги через ящик
+        const a = Math.sin(Math.min(1, vault / 0.8) * Math.PI) * 1.35;
+        g.save(); g.translate(0, -0.86 * s); g.rotate(-a); g.translate(0, 0.86 * s);
+      } else if (crouch) {                                                         // присел: бёдра вперёд, колени согнуты
+        for (const sx of [-1, 1]) { const x0 = sx * 0.13; P([[x0 - 0.1, 0], [x0 - 0.11, 0.45], [x0 + 0.1, 0.45], [x0 + 0.09, 0]], '#34373e'); P([[x0 - 0.12, 0.3], [x0 - 0.11, 0.48], [x0 + 0.1, 0.48], [x0 + 0.12, 0.3]], '#4a4e57'); P([[x0 - 0.12, 0], [x0 - 0.11, 0.1], [x0 + 0.1, 0.1], [x0 + 0.12, 0]], '#08080a'); }
+        g.translate(0, 0.4 * s); g.rotate(0.08 * f.flip);
+      }
+      for (const [sx, k] of (crouch && vault < 0 ? [] : [[-1, 1], [1, -1]])) {       // ноги: на бегу колени по очереди вверх
         const l = Math.max(0, k * run) * 0.22, x0 = sx * 0.12;
         P([[x0 - 0.1, 0.1 + l], [x0 - 0.11, 0.86], [x0 + 0.1, 0.86], [x0 + 0.09, 0.1 + l]], '#34373e');
         P([[x0 - 0.1, 0.44 + l * 0.6], [x0 - 0.1, 0.57 + l * 0.5], [x0 + 0.09, 0.57 + l * 0.5], [x0 + 0.09, 0.44 + l * 0.6]], '#4a4e57');
         P([[x0 - 0.12, l], [x0 - 0.11, 0.12 + l], [x0 + 0.1, 0.12 + l], [x0 + 0.12, l]], '#08080a');
       }
+      if (vault >= 0) g.restore();
       P([[-0.25, 0.82], [-0.25, 0.93], [0.25, 0.93], [0.25, 0.82]], '#111214');
       for (const px of [-0.18, 0.1]) P([[px, 0.8], [px, 0.9], [px + 0.08, 0.9], [px + 0.08, 0.8]], '#1e2024');
       P([[-0.25, 0.92], [-0.3, 1.46], [0.3, 1.46], [0.25, 0.92]], '#3a3d45');     // торс
@@ -237,11 +253,12 @@ export default {
         if (rl) P([[-0.09, 0.92], [-0.09, 1.04], [-0.02, 1.04], [-0.02, 0.92]], '#222');
         hand(rl ? -0.05 : -0.1, rl ? 1.0 : 1.28, true); hand(0.14, 1.1 + dy, false);
       }
-      for (const sx of [-1, 1]) E(sx * 0.31, 1.44, 0.1, 0.075, '#454850');       // наплечники
+      for (const sx of [-1, 1]) E(sx * 0.31, 1.44, 0.1, 0.075, '#454850');
+      if (vault >= 0 && vault < 0.75) { const hy = f.coverH - (f.lift || 0) + 0.04; limb(-0.3, 1.42, -0.42, hy, 0.09, '#33363c'); hand(-0.42, hy, true); }       // наплечники
       if (f.fl > 0.25) { const [mx, my] = aimPose(f) ? [0.1, 1.35] : [-0.26, 1.42]; muzzle(mx * s, -my * s, Math.max(10, s * 0.9) * (0.8 + f.fl * 0.4), f.flr); }
     }
     function drawFoe(f, w, h) {
-      if (f.state === 'hide' && f.up < 0.03 && !f.dead) return;
+      if (f.state === 'off' || (f.state === 'hide' && f.up < 0.03 && !f.dead)) return;
       if (f.dead > 0.6) return;
       const b = foeBox(f, w, h); if (b.behind || !(b.s > 0.5)) return;
       g.save();
@@ -261,8 +278,26 @@ export default {
       gore.push({ ...base, k: 'mist', x: f.x, y: my, z: f.z + 0.1, sz: head ? 0.45 : 0.3, t: 0, life: 0.3 });
       for (let i = 0; i < (head ? 9 : 5); i++) gore.push({ ...base, k: 'drop', x: f.x, y: my, z: f.z, vx: (Math.random() - 0.5) * 2.4, vy: Math.random() * 2.6, vz: (Math.random() - 0.6) * 2.4, sz: 0.02 + Math.random() * 0.04, t: 0, life: 5 });
       if (kill || head) for (let i = 0; i < (kill ? 4 : 2); i++) gore.push({ ...base, k: 'gib', im: pick(GIB), x: f.x, y: my, z: f.z, vx: (Math.random() - 0.5) * 3, vy: 1 + Math.random() * 3, vz: (Math.random() - 0.6) * 3, sz: 0.2, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 20, t: 0, life: 7 });
-      if (kill) gore.push({ ...base, k: 'pool', x: f.x, y: 0.01, z: f.z, sz: 0.1, grow: 0.9, im: pick(PUD), t: 0, life: 16 });
+      if (kill) gore.push({ ...base, k: 'pool', rot: Math.random() * 6, x: f.x, y: 0.01, z: f.z, sz: 0.1, grow: 0.9, im: pick(PUD), t: 0, life: 16 });
       if (gore.length > 180) gore.splice(0, gore.length - 180);
+    }
+    // картинка, лежащая на полу: 4 угла в мир → экран, два аффинных треугольника
+    function tri(im, x0, y0, x1, y1, x2, y2, u0, v0, u1, v1, u2, v2) {
+      g.save(); g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.lineTo(x2, y2); g.closePath(); g.clip();
+      const d = u0 * (v1 - v2) + u1 * (v2 - v0) + u2 * (v0 - v1);
+      const a = (x0 * (v1 - v2) + x1 * (v2 - v0) + x2 * (v0 - v1)) / d, b = (y0 * (v1 - v2) + y1 * (v2 - v0) + y2 * (v0 - v1)) / d;
+      const c = (x0 * (u2 - u1) + x1 * (u0 - u2) + x2 * (u1 - u0)) / d, e = (y0 * (u2 - u1) + y1 * (u0 - u2) + y2 * (u1 - u0)) / d;
+      const f = (x0 * (u1 * v2 - u2 * v1) + x1 * (u2 * v0 - u0 * v2) + x2 * (u0 * v1 - u1 * v0)) / d, h = (y0 * (u1 * v2 - u2 * v1) + y1 * (u2 * v0 - u0 * v2) + y2 * (u0 * v1 - u1 * v0)) / d;
+      g.transform(a, b, c, e, f, h); g.drawImage(im, 0, 0); g.restore();
+    }
+    function floorImg(im, x, z, r, rot, alpha, w, h) {
+      if (!im) return;
+      const cs = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => { const px = x + (u * Math.cos(rot) - v * Math.sin(rot)) * r, pz = z + (u * Math.sin(rot) + v * Math.cos(rot)) * r; return proj(px, 0.006, pz, w, h); });
+      if (cs.some((q) => q[2] > 1)) return;
+      const S = im.width; g.save(); g.globalAlpha = alpha; g.imageSmoothingEnabled = true;
+      tri(im, cs[0][0], cs[0][1], cs[1][0], cs[1][1], cs[2][0], cs[2][1], 0, 0, S, 0, S, S);
+      tri(im, cs[0][0], cs[0][1], cs[2][0], cs[2][1], cs[3][0], cs[3][1], 0, 0, S, S, 0, S);
+      g.restore();
     }
     function drawGore(dt, w, h) {
       const cy = camera.position.y;
@@ -281,7 +316,7 @@ export default {
         else if (p.k === 'drop') { g.fillStyle = '#8a0606'; g.beginPath(); g.arc(0, 0, Math.max(1, p.sz * pm), 0, 7); g.fill(); }
         else if (p.k === 'spot') { g.fillStyle = '#5e0404'; g.beginPath(); g.ellipse(0, 0, Math.max(1, p.sz * pm * 1.6), Math.max(0.5, p.sz * pm * 1.6 * flat), 0, 0, 7); g.fill(); }
         else if (p.k === 'gib') { const im = tint(p.im, '#9a1010'), r = p.sz * pm; if (im) { g.rotate(p.rot); g.drawImage(im, -r, -r, r * 2, r * 2); } }
-        else if (p.k === 'pool') { const r = (p.sz + p.grow * Math.min(1, p.t / 4)) * pm, im = tint(p.im, '#6a0404'); if (im) { g.scale(1, flat); g.drawImage(im, -r, -r, r * 2, r * 2); } }
+        else if (p.k === 'pool') { g.restore(); floorImg(tint(p.im, '#6a0404'), p.x, p.z, p.sz + p.grow * Math.min(1, p.t / (p.slow || 4)), p.rot || 0, a, w, h); continue; }
         g.restore();
       }
       for (let i = gore.length - 1; i >= 0; i--) if (gore[i].t > gore[i].life) gore.splice(i, 1);
@@ -338,14 +373,14 @@ export default {
     function shout(f, kind, force = false, text = null) {
       if (shouts.some((q) => q.f === f)) return;
       if (shouts.length >= 2) { if (!force) return; shouts.shift(); }
-      shouts.push({ f, text: text || pick(TXT.raiders[kind]), t: 0, heard: false });
+      shouts.push({ f, text: text || pick(TXT.raiders[kind]), t: 0, heard: false, screen: kind === 'screen' });
     }
     function wrap(t, maxW) { const out = []; let cur = ''; for (const wd of t.split(' ')) { const n = cur ? `${cur} ${wd}` : wd; if (cur && g.measureText(n).width > maxW) { out.push(cur); cur = wd; } else cur = n; } if (cur) out.push(cur); return out; }
     function drawShouts(dt, w, h) {
       for (const q of shouts) {
         if (q.f.up < 0.6 && !q.f.dead && !st.hell) continue;          // пока не высунулся — молчит
         if (!q.heard) { q.heard = true; sample(G(pick(['speak_1_exclaim', 'speak_2_exclaim', 'speak_1', 'speak_2', 'speak_1_ask'])), 0.9, 0.8 + Math.random() * 0.4); if (st.hell && Math.random() < 0.4) sample(G(`malescream_${1 + Math.floor(Math.random() * 6)}`), 0.8); }
-        q.t += dt; const b = foeBox(q.f, w, h); if (b.behind) continue;
+        q.t += dt; const b = q.screen ? { xH: w / 2, yH: h * 0.3 + 12, yF: h, s: 120 } : foeBox(q.f, w, h); if (b.behind) continue;
         const a = Math.min(1, (2.6 - q.t) * 2), pop = 1 + Math.max(0, 0.35 - q.t) * 1.5, jx = (Math.random() - 0.5) * 2.5, jy = (Math.random() - 0.5) * 2.5;
         const fs = Math.round(Math.max(10, Math.min(16, b.s * 0.13)) * pop);
         g.globalAlpha = Math.max(0, a); g.font = `${fs}px "Press Start 2P", monospace`; g.textAlign = 'center';
@@ -402,8 +437,8 @@ export default {
 
     // рывок: двое выбегают из-за укрытий прямо на нас
     function startRush() {
-      st.rushed = true;
-      st.foes.filter((f) => !f.dead).slice(0, 2).forEach((f, k) => { f.state = 'rushPrep'; f.t = 0.5 + k * 0.8; f.lane = k ? 0.4 : -0.4; f.hp = 1; if (!k) shout(f, 'rush', true); });
+      st.rushed = true; st.rushT = st.t;
+      st.foes.filter((f) => !f.dead && !f.door).slice(0, 2).forEach((f, k) => { f.state = 'rushPrep'; f.t = 0.5 + k * 0.8; f.lane = k ? 0.4 : -0.4; f.hp = 1; if (!k) shout(f, 'rush', true); });
       at(450, () => sample(G(`malescream_${1 + Math.floor(Math.random() * 6)}`), 0.8));
     }
     function rushStep(f, dt, w, h) {
@@ -417,12 +452,22 @@ export default {
       f.shot = (f.shot ?? 0.4) - dt;
       if (f.shot <= 0) { foeShot(f, w, h, f.state === 'close' ? 0.45 : 0.12); f.shot = f.state === 'close' ? 0.2 : 0.38; }
     }
-    const respawn = (f) => { f.dead = 0; f.hp = 1; f.state = 'hide'; f.up = 0; f.z = f.cz; f.x = f.x0; f.t = 2 + Math.random() * 3; };
+    // прыжок через ящик: хват рукой, подъём, ноги перекидываются, приземление перед укрытием
+    function vaultStep(f, dt) {
+      f.vk = (f.vk || 0) + dt; const k = f.vk;
+      if (k < 0.25) f.lift = f.coverH * 0.7 * (k / 0.25);
+      else if (k < 0.7) { f.lift = f.coverH * (0.7 + 0.3 * Math.sin((k - 0.25) / 0.45 * Math.PI)); f.z = f.cz + (k - 0.25) / 0.45 * 0.9; }
+      else { f.lift = Math.max(0, f.coverH * (1 - (k - 0.7) / 0.2)); f.z = f.cz + 0.9 + (k - 0.7) * 1.5; }
+      if (k > 0.25 && !f.grab) { f.grab = true; sample(G('gen_hit'), 0.6); }
+      if (k >= 0.9) { f.lift = 0; f.vk = 0; f.grab = false; f.z = f.cz + 1.2; sample(G('floor1'), 1); return true; }
+      return false;
+    }
+    const respawn = (f) => { if (f.door) { f.dead = 0; f.state = 'off'; return; } f.dead = 0; f.hp = 1; f.state = 'hide'; f.up = 0; f.z = f.cz; f.x = f.x0; f.t = 2 + Math.random() * 3; };
 
     // «И ГРЯНУЛ АД»: затемнение, медленная надпись, выход из-за угла, контраст, рейдеры бегут
     function startHell() {
       st.hellIntro = 5.5; st.hellEnd = performance.now() + 5500; hum.set(0.6);
-      for (const f of st.foes) if (['rush', 'close', 'rushPrep'].includes(f.state)) f.state = 'flee';
+      for (const f of st.foes) if (['rush', 'close', 'rushPrep', 'vault', 'doorOut'].includes(f.state)) { f.state = 'flee'; f.lift = 0; }
       const t = document.createElement('div'); t.className = 'sh-hell'; t.textContent = TXT.hell; root.appendChild(t);
       at(400, () => t.classList.add('on')); at(4600, () => t.classList.add('off')); at(6000, () => t.remove());
       sample(G('lmg_bolt_closed'), 1.5);
@@ -430,7 +475,7 @@ export default {
     // финал: джаггернаут с одним большим щитком и пулемётом
     function juggernaut() {
       st.jug = { t0: performance.now(), t: 0, z: st.baseZ - st.walk - 26, fire: 0, fl: 0, flr: 0 }; st.cover = false; cov.hidden = true; st.fire = false;
-      st.foes.forEach((f) => { if (!f.dead) { f.state = 'hide'; f.z = f.cz; f.x = f.x0; } });
+      st.foes.forEach((f) => { if (!f.dead) { f.state = f.door ? 'off' : 'hide'; f.z = f.cz; f.x = f.x0; } });
     }
     function jugBox(w, h) {
       const J = st.jug, [x, yF, nz] = proj(0.2, 0, J.z, w, h), [xH, yH] = proj(0.2, 2.1, J.z, w, h);
@@ -470,7 +515,7 @@ export default {
     }
 
     // ---------- падение (камерой), шаги, «Добить», ещё выстрелы ----------
-    const Y_AXIS = new THREE.Vector3(0, 1, 0), qJ = new THREE.Quaternion();
+    const UPL = new THREE.Vector3(-0.98, 0.15, 0).normalize();
     function startFall(now) {
       st.fall = { t0: now, x: camera.position.x, y: camera.position.y, z: camera.position.z, jy: 0, jr: 0, cy: 0, cr: 0 };
       st.slow = 1; vm.visible = false; st.fire = false;
@@ -479,8 +524,12 @@ export default {
       at(420, () => { sample(G('bodyfall1'), 1.5); sample(G('largethud'), 0.9); st.shake = 1.2; });
       at(640, () => { sample(G('bodyfall3'), 1.1); st.shake = 0.6; });
       at(800, () => sample(G('bodyfall2'), 0.7));
-      at(1500, () => gore.push({ k: 'pool', x: st.fall.x + 0.25, y: 0.006, z: st.fall.z - 0.7, sz: 0.1, grow: 1.4, im: pick(PUD), t: 0, life: 60, cz: null }));
-      at(2800, () => { st.fin = { i: 9, x: 0.35, x0: 0.35, z: st.fall.z - 16, cz: -999, coverH: 0, state: 'walk', up: 1, hp: 1, flip: -1, dead: 0, seed: 0.5, wpn: 'rifle', fl: 0, flr: 0, run: 0 }; });
+      at(1200, () => gore.push({ k: 'pool', x: st.fall.x + 0.2, y: 0.006, z: st.fall.z - 1.7, sz: 0.15, grow: 1.1, slow: 9, rot: 0.7, im: pick(PUD), t: 0, life: 60, cz: null }));
+      at(2600, () => { const [a, b] = st.foes; for (const f of [a, b]) { f.dead = 0; f.z = f.cz; f.x = f.x0; f.state = 'peek'; f.up = 0; } });
+      at(3300, () => shout(st.foes[0], 'x', true, TXT.dead));
+      at(4700, () => shout(st.foes[1], 'x', true, TXT.go));
+      at(5600, () => { const b = st.foes[1]; b.state = 'off'; st.fin = { i: 9, x: b.x, x0: b.x, z: b.cz, cz: b.cz, coverH: b.coverH, state: 'vault', vt: 0, vk: 0, lift: 0, up: 1, hp: 1, flip: b.flip, dead: 0, seed: 0.5, wpn: 'rifle', fl: 0, flr: 0, run: 0 }; });
+      at(99999999, () => { st.fin = { i: 9, x: 0.35, x0: 0.35, z: st.fall.z - 16, cz: -999, coverH: 0, state: 'walk', up: 1, hp: 1, flip: -1, dead: 0, seed: 0.5, wpn: 'rifle', fl: 0, flr: 0, run: 0 }; });
       at(11000, () => root.classList.add('pale'));
       const d = document.createElement('div'); d.className = 'sh-sorry'; d.textContent = TXT.sorry; root.appendChild(d);
       at(15000, () => d.classList.add('on'));
@@ -488,6 +537,7 @@ export default {
     }
     function finFrame(dt, now, w, h) {
       const F = st.fin, Fa = st.fall, stop = Fa.z - 1.5; F.fl = Math.max(0, F.fl - dt * 18);
+      if (F.state === 'vault') { if (vaultStep(F, dt)) { F.state = 'walk'; F.cz = -999; } return; }
       if (F.fl > 0) lit(F.x, F.z, F.fl * 10);
       const moving = F.state === 'walk' || F.state === 'leave';
       if (moving) {
@@ -497,13 +547,13 @@ export default {
       }
       if (F.state === 'finish') {
         const t = (now - F.ta) / 1000;
-        if (t > 0.7 && !F.said) { F.said = true; shout(F, null, true, TXT.finish); }
+        if (t > 0.7 && !F.said) { F.said = true; shout(F, 'screen', true, TXT.finish); }
         const shots = [1.6, 2.3, 2.75];
         while ((F.n || 0) < shots.length && t > shots[F.n || 0]) {
           F.n = (F.n || 0) + 1; F.fl = 1; F.flr = Math.random() * 6;
           sample(G('rifle'), 1.8); hurt(1.2); if (Math.random() < 0.6) sample(G('gib2'), 1);
           splatScreen(1.5); splatScreen(0.8); st.shake = 1.5; st.flash = 1;
-          Fa.jy += 0.2 + Math.random() * 0.14; Fa.jr += (Math.random() - 0.5) * 0.14;   // тело дёргает — взгляд рывком вбок
+          Fa.look = [[F.x, 1.3, F.z], [Fa.x + 0.3, 3, Fa.z - 0.6], [Fa.x + 1.6, 2.4, Fa.z - 0.3]][F.n - 1];   // рывок: на рейдера, в потолок, ещё вбок
           const b = foeBox(F, w, h), [mx, my] = muzzlePt(F, b); tracer(mx, my, w * 0.5, h * 0.6, '255,170,80');
         }
         if (t > 5) { F.state = 'leave'; }
@@ -515,10 +565,10 @@ export default {
       if (t < 0.42) { const k = t / 0.42; y = Fa.y - (Fa.y - 0.26) * k * k; roll = 1.42 * k * k; pitch = -0.35 * Math.sin(k * Math.PI); }
       else { const u = t - 0.42, b1 = u < 0.22 ? Math.sin(u / 0.22 * Math.PI) * 0.12 : 0, b2 = u >= 0.22 && u < 0.38 ? Math.sin((u - 0.22) / 0.16 * Math.PI) * 0.05 : 0; y = 0.26 + b1 + b2; roll = 1.42 + (b1 + b2) * 0.6; pitch = 0.06 - (b1 + b2) * 0.5; }
       Fa.cy += (Fa.jy - Fa.cy) * Math.min(1, dt * 22); Fa.cr += (Fa.jr - Fa.cr) * Math.min(1, dt * 22);
-      const sh = st.shake * 0.03;
+      const sh = t < 1 ? st.shake * 0.03 : 0;
       camera.position.set(Fa.x, y, Fa.z);
       camera.rotation.set(pitch + (Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh, roll + Fa.cr);
-      qJ.setFromAxisAngle(Y_AXIS, Fa.cy); camera.quaternion.multiply(qJ);
+      if (Fa.look) { Fa.m ??= new THREE.Matrix4(); Fa.q ??= camera.quaternion.clone(); Fa.m.lookAt(camera.position, tmp.set(...Fa.look), UPL); const tq3 = new THREE.Quaternion().setFromRotationMatrix(Fa.m); Fa.q.slerp(tq3, Math.min(1, dt * 30)); camera.quaternion.copy(Fa.q); }
     }
 
     // ---------- цикл ----------
@@ -545,11 +595,14 @@ export default {
       const hard = 1 + st.t / DURATION;
       for (const f of st.foes) {
         f.fl = Math.max(0, f.fl - dt * 18);
-        if (st.jug) { if (!f.dead) { f.state = 'hide'; f.up = 0; } else f.dead += dt; continue; }
+        if (st.jug) { if (f.state === 'peek') continue; if (!f.dead) { f.state = f.door ? 'off' : 'hide'; f.up = 0; } else f.dead += dt; continue; }
         if (f.dead) { f.dead += dt; if (f.dead > 3) respawn(f); continue; }
-        if (f.state === 'rushPrep') { f.up += (1 - f.up) * Math.min(1, dt * 8); f.t -= dt; if (f.t <= 0) f.state = 'rush'; continue; }
+        if (f.state === 'off') continue;
+        if (f.state === 'rushPrep') { f.up += (1 - f.up) * Math.min(1, dt * 8); f.t -= dt; if (f.t <= 0) { f.state = f.door ? 'doorOut' : 'vault'; f.vk = 0; } continue; }
+        if (f.state === 'vault') { f.up = 1; if (vaultStep(f, dt)) f.state = 'rush'; continue; }
+        if (f.state === 'doorOut') { f.up = 1; f.run += dt * 10; f.x += (f.lane - f.x) * Math.min(1, dt * 4); if (Math.abs(f.x - f.lane) < 0.15) f.state = 'rush'; continue; }
         if (f.state === 'rush' || f.state === 'close') { rushStep(f, dt, w, h); continue; }
-        if (f.state === 'flee') { f.up = 1; f.run += dt * 12; f.z -= dt * 3.5; if (f.z <= f.cz) { f.z = f.cz; f.x = f.x0; f.state = 'hide'; f.t = 1; } continue; }
+        if (f.state === 'flee') { f.up = 1; f.run += dt * 12; f.z -= dt * 3.5; if (f.z <= (f.door ? -34 : f.cz)) { f.z = f.cz; f.x = f.x0; f.state = f.door ? 'off' : 'hide'; f.t = 1; } continue; }
         f.t -= dt;
         if (st.hell && Math.random() < dt * 0.12) shout(f, 'hell');
         if (st.hell) { f.z -= dt * 0.8; if (st.hellIntro <= 0 && f.state === 'aim') f.t -= dt; }
@@ -571,19 +624,24 @@ export default {
       }
       fLight.intensity *= Math.exp(-dt * 25); st.foes.forEach((f) => { if (f.fl > 0.5) lit(f.x, f.z, f.fl * 8); });
       if (!st.rushed && !st.hell && st.hellIntro <= 0 && !st.jug && (st.t > 11 || st.ammo <= 14)) startRush();
+      if (st.rushed && !st.doorDone && !st.hell && st.hellIntro <= 0 && !st.jug && st.t > st.rushT + 7) {
+        st.doorDone = true; const D = doors.find((d) => d.z === -16 && d.s < 0), f = st.foes[3];
+        if (D) { D.m.position.z -= 0.95; sample(G('gen_hit'), 0.8); }
+        f.state = 'rushPrep'; f.t = 0.4; f.dead = 0; f.hp = 1; f.x = -1.85; f.z = -16; f.lane = -0.5; shout(f, 'rush', true);
+      }
       if (st.ammo === 0 && cov.hidden && !st.jug) { cov.hidden = false; sfx.click(); }
       st.shake = Math.max(0, st.shake - dt * 3); st.blood = Math.max(0, st.blood - dt);
       // камера
-      if (st.hell && !st.cover && !st.jug) { st.walk = Math.min(18, st.walk + dt * 0.5); if ((st.stepT = (st.stepT || 0) - dt) <= 0) { st.stepT = 0.62; sample(G(`hull${1 + Math.floor(Math.random() * 5)}`), 1.1, 0.8); if (Math.random() < 0.3) sample(G(`blood${1 + Math.floor(Math.random() * 3)}`), 0.6); } }
+      if (st.hell && !st.cover && !st.jug) { st.walk = Math.min(18, st.walk + dt * 2.4); if ((st.stepT = (st.stepT || 0) - dt) <= 0) { st.stepT = st.walk < 18 ? 0.3 : 0.62; sample(G(`hull${1 + Math.floor(Math.random() * 5)}`), 1.1, 0.8); if (Math.random() < 0.3) sample(G(`blood${1 + Math.floor(Math.random() * 3)}`), 0.6); } }
       root.style.setProperty('--dark', String(st.hellIntro > 0 ? 1 : 0));
       const kd2 = Math.exp(-dt * 9); st.kick.x *= kd2; st.kick.y *= kd2; st.kick.r *= kd2;
       if (st.fall) fallCam(now, dt);
       else {
-        camera.position.set(st.coverK * 0.62, 1.6 - st.coverK * 0.15 + Math.sin(st.walk * 6) * 0.03, st.baseZ + st.coverK * 0.25 - st.walk);
+        camera.position.set(st.coverK * 0.62, 1.6 - st.coverK * 0.15 + Math.sin(st.walk * 3.3) * 0.06, st.baseZ + st.coverK * 0.25 - st.walk);
         camera.rotation.set(-st.aim.y * 0.05 + st.kick.y + (Math.random() - 0.5) * st.shake * 0.04, -st.aim.x * 0.07 + st.coverK * 0.12 + st.kick.x + (Math.random() - 0.5) * st.shake * 0.04, st.coverK * 0.04 + st.kick.r);
       }
       st.flash = Math.max(0, (st.flash || 0) - dt * 6);
-      const epic = st.hell ? 1 : 0.4, zoom = 1 + (Math.sin(st.t * 1.3) * 0.03 + Math.sin(st.t * 3.7) * 0.015) * (1 + epic * 2) + st.shake * 0.08 * (1 + epic) + st.recoil * 0.03 * epic;
+      const epic = st.hell ? 1 : 0.4, zoom = st.fall ? 1 : 1 + (Math.sin(st.t * 1.3) * 0.03 + Math.sin(st.t * 3.7) * 0.015) * (1 + epic * 2) + st.shake * 0.08 * (1 + epic) + st.recoil * 0.03 * epic;
       camera.fov = 62 / Math.max(0.85, zoom); camera.updateProjectionMatrix();     // «дыхание» — зумом камеры, без рамок
       if (st.hell && Math.random() < dt * 3) st.flash = Math.max(st.flash, 0.6);
       const blur = st.fall ? 0 : Math.max(0, Math.sin(st.t * 0.9) * 1.2 + st.blood * 1.5) + st.coverK * 4;
@@ -601,6 +659,7 @@ export default {
       lampsL.forEach((l, i) => (l.intensity = (Math.sin(st.t * (2 + i * 0.7) + i) > 0.3 || Math.random() < 0.03) ? 2.2 : 0.15));
       if (st.jug) jugFrame(dt, now, w, h);
       if (st.fin) finFrame(dt, now, w, h);
+      if (st.fall) for (const f of st.foes) if (f.state === 'peek') f.up += (0.85 - f.up) * Math.min(1, dt * 4);
       renderer.render(scene, camera);
       // 2D
       g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
