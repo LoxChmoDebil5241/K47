@@ -8,7 +8,7 @@ import TXT from '../story/shield.json';
 // серый мир с жирными контурами, яркая только кровь и вспышки.
 // 3D: только помещение. 2D: рейдеры за укрытиями, руки на костях (ИК) и пиксельный спрайт ПП.
 // Касание — выстрел в точку. «УКРЫТИЕ» (удерживать) — не попадут, но и стрелять нельзя; в укрытии — перезарядка.
-const DURATION = 60, MAG = 30, SPARE = 1, HP = 100, SCI = 20;
+const DURATION = 60, MAG = 30, SPARE = 1, HP = 250, SCI = 20;
 
 export default {
   name: 'Щит',
@@ -140,7 +140,7 @@ export default {
     const coverOn = (e) => { e.preventDefault(); e.stopPropagation(); if (!st.cover) { st.cover = true; sfx.click(); } };
     const coverOff = (e) => { e?.stopPropagation(); st.cover = false; };
     cov.addEventListener('pointerdown', coverOn); cov.addEventListener('pointerup', coverOff); cov.addEventListener('pointercancel', coverOff); cov.addEventListener('pointerleave', coverOff);
-    const reload = () => { if (st.reload > 0 || st.ammo === MAG || st.hell) return; if (st.coverK < 0.6) { say('Перезарядка — только за углом.', 'warn'); return; } if (st.spare <= 0) { sample('guns/empty', 1); say('Магазинов больше нет.', 'warn'); return; } st.reload = 1.5; sample('guns/lmg_bolt_open', 1.2); setTimeout(() => sample('guns/smg_magin', 1.3), 550); };
+    const reload = () => { if (st.reload > 0 || st.ammo === MAG || st.hell) return; if (st.coverK < 0.6) {  return; } if (st.spare <= 0) { sample('guns/empty', 1);  return; } st.reload = 1.5; sample('guns/lmg_bolt_open', 1.2); setTimeout(() => sample('guns/smg_magin', 1.3), 550); };
     $('.sh-reload').addEventListener('pointerdown', (e) => { e.stopPropagation(); reload(); });
     const kd = (e) => { if (e.key === 'r' || e.key === 'к') reload(); if (e.key === ' ' || e.key === 'Shift') st.cover = e.type === 'keydown'; };
     addEventListener('keydown', kd); addEventListener('keyup', kd);
@@ -226,7 +226,7 @@ export default {
       if (J.t < 2.2) { J.z += dt * 1.2; if ((J.step = (J.step || 0) - dt) <= 0) { J.step = 0.55; snd.heart?.(); st.shake = 0.6; } }
       else if (J.t < 4.2) {
         J.fire = 1; st.slow = 0.35;
-        if ((J.b = (J.b || 0) - dt) <= 0) { J.b = 0.07; sampleHeavy('guns/minigun', 1.6) || sampleHeavy('guns/lmg', 1.6); st.shake = 1.4; st.blood = 1; st.flash = 1; st.hp -= 4; if (Math.random() < 0.5) hurt(); }
+        if ((J.b = (J.b || 0) - dt) <= 0) { J.b = 0.07; { const w = c2.clientWidth, h = c2.clientHeight, [jx, jy] = proj(0.2, 0, J.z, w, h), [, jh] = proj(0.2, 2.1, J.z, w, h), js = (jy - jh) / 2.1; for (let k = 0; k < 2; k++) tracer(jx + 0.95 * js, jy - 1.35 * js, w * Math.random(), h * (0.5 + Math.random() * 0.6), '255,120,60'); } sampleHeavy('guns/minigun', 1.6) || sampleHeavy('guns/lmg', 1.6); st.shake = 1.4; st.blood = 1; st.flash = 1; st.hp -= 4; if (Math.random() < 0.5) hurt(); }
       } else if (!J.dead) {
         J.dead = true; J.fire = 0; ringing(6); sample('guns/splat', 1.4); setTimeout(() => sample('guns/gib2', 1.2), 700);
         const d = document.createElement('div'); d.className = 'sh-sorry'; d.textContent = TXT.sorry; root.appendChild(d);
@@ -236,8 +236,21 @@ export default {
       }
       return false;
     }
+    const tracers = [];
+    const tracer = (x1, y1, x2, y2, c) => tracers.push({ x1, y1, x2, y2, c, t: 0 });
+    function drawTracers(dt) {
+      g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
+      for (const q of tracers) {
+        q.t += dt; const k = q.t / 0.09, a = Math.max(0, 1 - k), hx = q.x1 + (q.x2 - q.x1) * Math.min(1, k * 1.4), hy = q.y1 + (q.y2 - q.y1) * Math.min(1, k * 1.4);
+        const tx = q.x1 + (q.x2 - q.x1) * Math.max(0, k * 1.4 - 0.5), ty = q.y1 + (q.y2 - q.y1) * Math.max(0, k * 1.4 - 0.5);
+        g.strokeStyle = `rgba(${q.c},${a})`; g.lineWidth = 3; g.beginPath(); g.moveTo(tx, ty); g.lineTo(hx, hy); g.stroke();
+        g.strokeStyle = `rgba(255,255,240,${a})`; g.lineWidth = 1; g.stroke();
+      }
+      for (let i = tracers.length - 1; i >= 0; i--) if (tracers[i].t > 0.09) tracers.splice(i, 1);
+      g.globalCompositeOperation = 'source-over';
+    }
     const shouts = [];
-    function shout(f, kind) { const l = TXT.raiders[kind]; shouts.push({ f, text: l[Math.floor(Math.random() * l.length)], t: 0 }); }
+    function shout(f, kind) { if (shouts.some((q) => q.f === f && q.t < 1)) return; const l = TXT.raiders[kind]; shouts.push({ f, text: l[Math.floor(Math.random() * l.length)], t: 0 }); }
     function drawShouts(w, h) {
       for (const q of shouts) {
         q.t += 1 / 60; const b = foeBox(q.f, w, h), a = Math.min(1, (2 - q.t) * 2);
@@ -252,6 +265,7 @@ export default {
       if (st.ammo <= 0) { sample('guns/empty', 1); reload(); return; }
       st.ammo--; st.recoil = 1; if (st.hell) st.shake = Math.max(st.shake, 0.5); st.cool = 0.13; (sample('guns/smg', 1.6) || snd.loud('smg')); if (Math.random() < 0.3) setTimeout(() => sample(`guns/casing_fall_${1 + Math.floor(Math.random() * 3)}`, 0.5), 250); st.flash = 1; st.shake = Math.max(st.shake, 0.15);
       const w = c2.clientWidth, h = c2.clientHeight, sx = (st.aim.x + 1) / 2 * w, sy = (st.aim.y + 1) / 2 * h;
+      tracer(w * 0.56, h * 0.72, sx + (Math.random() - 0.5) * 8, sy + (Math.random() - 0.5) * 8, '255,210,120');
       // попадание по видимой части рейдера (ближние — первыми)
       const hit = st.foes.filter((f) => !f.dead && f.up > 0.4).sort((a, b) => b.z - a.z).find((f) => {
         const b = foeBox(f, w, h);
@@ -261,7 +275,7 @@ export default {
         const b = foeBox(hit, w, h), head = sy < b.top + 0.35 * b.s;
         hit.hp -= head ? 1 : 0.45;
         splat(sx, sy, head ? 1.4 : 0.8, b.s); meat();
-        if (hit.hp <= 0) { hit.dead = 0.001; st.kills++; if (Math.random() < 0.5) shout(hit, 'down'); snd.fall(); }
+        if (hit.hp <= 0) { hit.dead = 0.001; st.kills++; shout(hit, 'down'); snd.fall(); }
       } else { st.splats.push({ x: sx, y: sy, r: 3, dust: 1, t: 0 }); sample(Math.random() < 0.6 ? 'guns/bullet_hit' : `guns/ric${1 + Math.floor(Math.random() * 5)}`, 0.9); }
     }
     function splat(x, y, k, s) { for (let i = 0; i < 6 * k; i++) st.splats.push({ x: x + (Math.random() - 0.5) * s * 0.2, y: y + (Math.random() - 0.5) * s * 0.2, r: (0.02 + Math.random() * 0.05) * s * k, vx: (Math.random() - 0.5) * 80, vy: -Math.random() * 60, t: 0 }); }
@@ -340,11 +354,12 @@ export default {
       for (const f of st.foes) {
         if (f.dead) { f.dead += dt; if (f.dead > 3) { f.dead = 0; f.hp = 1; f.state = 'hide'; f.up = 0; f.t = 2 + Math.random() * 3; } continue; }
         f.t -= dt;
+        if (st.hell && !f.dead && Math.random() < dt * 0.5) shout(f, 'hell');
         if (st.hell) { f.z -= dt * 0.8; if (st.hellIntro <= 0 && f.state === 'aim') f.t -= dt; }
         const target = f.state === 'hide' ? 0 : 1;
         f.up += (target - f.up) * Math.min(1, dt * 6);
         if (f.t > 0) continue;
-        if (f.state === 'hide') { if (Math.random() < (st.hell ? 0.5 : 0.25)) shout(f, st.hell ? 'hell' : st.kills > 3 ? 'shock' : 'fire'); f.state = 'aim'; f.t = (0.9 + Math.random() * 0.6) / hard; }
+        if (f.state === 'hide') { if (Math.random() < (st.hell ? 0.9 : 0.55)) shout(f, st.hell ? 'hell' : st.kills > 3 ? 'shock' : 'fire'); f.state = 'aim'; f.t = (0.9 + Math.random() * 0.6) / hard; }
         else if (f.state === 'aim') { f.state = 'fire'; f.t = 0.7 + Math.random() * 0.5; f.shot = 0; }
         else if (f.state === 'fire') {
           if (++f.shots % 2 === 0) { f.state = 'reload'; f.t = 1.6; sample(f.wpn === 'shotgun' ? 'guns/shotgun_insert' : f.wpn === 'lmg' ? 'guns/lmg_magin' : 'guns/smg_magin', 0.9, 0.95); setTimeout(() => sample('guns/smg_cock', 0.8), 900); shout(f, 'reload'); }
@@ -356,7 +371,7 @@ export default {
       for (const f of st.foes) if (f.state === 'fire' && !f.dead) {
         f.shot = (f.shot || 0) - dt;
         if (f.shot <= 0) {
-          if (Math.random() < 0.5) setTimeout(() => sample(Math.random() < 0.7 ? 'guns/bullet_hit' : `guns/ric${1 + Math.floor(Math.random() * 5)}`, 0.6), 80); f.shot = 0.18; const gs = { smg: 'guns/c-20r', shotgun: 'guns/shotgun', lmg: 'guns/lmg', rifle: 'guns/rifle' }[f.wpn]; (sample(gs, 1.2, 0.95) || snd.loud('smg'));
+          if (Math.random() < 0.5) setTimeout(() => sample(Math.random() < 0.7 ? 'guns/bullet_hit' : `guns/ric${1 + Math.floor(Math.random() * 5)}`, 0.6), 80); { const w = c2.clientWidth, h = c2.clientHeight, b = foeBox(f, w, h); tracer(b.x + ({ smg: 0.4, shotgun: 0.52, lmg: 0.6, rifle: 0.58 }[f.wpn]) * b.s * f.flip, b.yF - 1.32 * b.s, w * (0.3 + Math.random() * 0.4), h * (0.55 + Math.random() * 0.5), '255,170,80'); } f.shot = 0.18; const gs = { smg: 'guns/c-20r', shotgun: 'guns/shotgun', lmg: 'guns/lmg', rifle: 'guns/rifle' }[f.wpn]; (sample(gs, 1.2, 0.95) || snd.loud('smg'));
           if (st.coverK < 0.5 && st.hellIntro <= 0 && Math.random() < (st.hell ? 0.12 : 0.28)) { st.hp -= 3 + Math.random() * 3; st.shake = 1; st.blood = 1; st.flash = 1; hurt(); }
         }
       }
@@ -393,6 +408,7 @@ export default {
       drawShouts(w, h);
       g.restore();
       if (st.jug) drawJug(w, h);
+      drawTracers(dt);
       // кровь и пыль от попаданий
       st.splats = st.splats.filter((p) => (p.t += dt) < (p.dust ? 0.4 : 1.2));
       for (const p of st.splats) {
@@ -408,7 +424,7 @@ export default {
       }
       // HUD
       st.sci = Math.min(SCI, Math.floor((st.t / (DURATION * 0.6)) * SCI));
-      $('.sh-life b').style.width = `${Math.max(0, st.hp)}%`;
+      $('.sh-life b').style.width = `${Math.max(0, st.hp / HP * 100)}%`;
       $('.sh-time').textContent = `${Math.ceil(DURATION - st.t)}`;
       $('.sh-sci').textContent = `У ЧЕЛНОКА ${st.sci}/${SCI}`;
       $('.sh-kills').textContent = String(st.kills);
@@ -425,9 +441,8 @@ export default {
       win ? storm.captured() : storm.alarm();
       setTimeout(() => done(win), 2600);
     }
-    say('Держать коридор, пока они не у челнока.');
     root.__jug = () => juggernaut(); // автотест
-    const thinkT = setInterval(() => { if (!st.over && Math.random() < 0.6) say(TXT.k21[Math.floor(Math.random() * TXT.k21.length)]); }, 11000);
+    const thinkT = 0;
     raf = requestAnimationFrame(frame);
     return () => { clearInterval(thinkT); st.over = true; cancelAnimationFrame(raf); hum.stop(); removeEventListener('keydown', kd); removeEventListener('keyup', kd); renderer.dispose(); };
   },
