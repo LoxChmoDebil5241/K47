@@ -667,7 +667,11 @@ body.no-fx .post, body.no-fx #reader::before { display: none; }
 .sh-root.hell .sh-3d { filter: grayscale(1) contrast(2.6) brightness(.8) blur(var(--bl, 0)); }
 .sh-root.hell .sh-2d { filter: contrast(1.8) saturate(2.5) brightness(calc(1 + var(--fl, 0))); }
 .sh-root.hell .sh-blood { background: radial-gradient(circle, transparent 30%, rgba(200,0,0,.9) 100%); }
-.sh-root.fall .sh-3d, .sh-root.fall .sh-2d { transition: transform 3s ease-in, filter 4s; transform: rotate(-80deg) translateY(40%) scale(1.3); filter: blur(4px) brightness(.4) saturate(0); }
-.sh-sorry { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 7; font: 300 clamp(18px, 5vw, 32px)/1 var(--f-mono); color: #ddd; letter-spacing: .15em; opacity: 0; transition: opacity 3s; animation: sorryShake .12s steps(2) infinite; pointer-events: none; }
-.sh-sorry.on { opacity: .9; }
-@keyframes sorryShake { 0% { translate: 0 0; } 50% { translate: 1px -1px; } 100% { translate: -1px 1px; } }
+.sh-root.fall .sh-3d, .sh-root.fall .sh-2d { animation: shFall 1.1s cubic-bezier(.5,0,1,.6) forwards; filter: blur(3px) brightness(.45) saturate(0); transition: filter 1s; }
+@keyframes shFall { 0% { transform: none; } 45% { transform: rotate(-70deg) translate(-10%, 38%) scale(1.3); } 60% { transform: rotate(-62deg) translate(-8%, 30%) scale(1.3); } 75% { transform: rotate(-72deg) translate(-10%, 40%) scale(1.3); } 85% { transform: rotate(-68deg) translate(-9%, 36%) scale(1.3); } 100% { transform: rotate(-71deg) translate(-10%, 39%) scale(1.3); } }
+.sh-root.pale .sh-3d, .sh-root.pale .sh-2d { filter: blur(6px) brightness(1.9) saturate(0) contrast(.6); transition: filter 7s ease-in; }
+.sh-sorry { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 7; font: 300 clamp(16px, 4.4vw, 28px)/1 var(--f-mono); color: #333; letter-spacing: .2em; opacity: 0; transition: opacity 6s ease-in; animation: sorryShake .09s steps(2) infinite, sorryFlick 1.7s infinite; pointer-events: none; }
+@keyframes sorryFlick { 0%, 100% { filter: blur(0); } 40% { filter: blur(.6px); } 55% { filter: blur(0); } 70% { filter: blur(1px); } }
+.sh-sorry.on { opacity: .85; }
+@keyframes sorryShake { 0% { translate: 0 0; } 25% { translate: 1.5px -1px; } 50% { translate: -1px 1.5px; } 75% { translate: 1px .5px; } 100% { translate: -1.5px -1px; } }
+.sh-root.fall .sh-hud, .sh-root.fall .sh-kills, .sh-root.fall .sh-ammo, .sh-root.fall .sh-reload, .sh-root.fall .sh-cover { opacity: 0; transition: opacity .5s; }

@@ -106,3 +106,232 @@
 /tmp/claude-0/-home-user-K47/146f2f8f-cc86-570f-bd63-dd1e66dfb3b2/scratchpad/ss14/Resources/Audio/Effects/Footsteps/attributions.yml-
 
 ## Текстура вспышки src/assets/muzzle.png — projectiles.rsi/muzzle_bullet, CC-BY-SA-3.0, cev-eris (discordia-space/CEV-Eris)
+
+## Footsteps, bodyfall, flash_bang, Voice/Talk, Voice/Human
+### Effects/Footsteps
+- files:
+  - water1.ogg
+  - water2.ogg
+  - water3.ogg
+  - water4.ogg
+  license: "CC-BY-SA-3.0"
+  copyright: "Taken from https://github.com/Citadel-Station-13/Citadel-Station-13-RP"
+  source: "https://github.com/Citadel-Station-13/Citadel-Station-13-RP/tree/b7392a25f826d038d35309cf36875f2066c3eb05/sound/effects/footstep"
+
+- files:
+  - bounce.ogg
+  license: "CC-BY-SA-4.0"
+  copyright: "Made by JustInvoke freesound.org"
+  source: "https://freesound.org/people/JustInvoke/sounds/446100/"
+
+- files:
+  - jesterstep1.ogg
+  - jesterstep2.ogg
+  license: "CC-BY-SA-3.0"
+  copyright: "Made and posted by GentleJester#8754 on the SS14 discord."
+  source: "https://discord.com/channels/310555209753690112/311537926376783886/1097222920813674527"
+
+- files:
+  - slime1.ogg
+  - slime2.ogg
+  - slime3.ogg
+  - slime4.ogg
+  license: "CC0-1.0"
+  copyright: "Created by SoundDesignForYou on freesound.org, modified by EmoGarbage404 (github)"
+  source: "https://freesound.org/people/SoundDesignForYou/packs/36178/"
+
+- files:
+  - puddle1.ogg
+  - puddle2.ogg
+  - puddle3.ogg
+  - puddle4.ogg
+  - puddle5.ogg
+  license: "CC-BY-NC-4.0"
+  copyright: "Created by Robinhood76 on freesound.org, modified by EmoGarbage404 (github)"
+  source: "https://freesound.org/people/Robinhood76/sounds/158481/"
+
+- files:
+  - blood1.ogg
+  - blood2.ogg
+  - blood3.ogg
+  - blood4.ogg
+  - blood5.ogg
+  license: "CC-BY-NC-4.0"
+  copyright: "Created by Robinhood76 on freesound.org, modified by EmoGarbage404 (github), background noise removed by Prole0 (Github)"
+  source: "https://freesound.org/people/Robinhood76/sounds/98731/"
+
+- files:
+  - clownstepspider1.ogg
+  - clownstepspider2.ogg
+  license: "CC-BY-SA-3.0"
+  copyright: "Taken and modified from tgstation (clownstep 1 and 2) by brainfood1183 (github)"
+  source: "https://github.com/tgstation/tgstation/tree/f8ee37afc00bce1ad421615eaa0e4cbddd5eea90/sound/effects"
+
+- files:
+  - largethud.ogg
+### Effects
+- files: ["balloon-pop"]
+  license: "CC-BY-4.0"
+  copyright: '"Balloon Pop" by Aesterial-Arts on Freesound.org. Cconverted to mono by EmoGarbage404 on GitHub.com'
+  source: "https://freesound.org/people/Aesterial-Arts/sounds/633835/"
+
+- files: ["pill_insert.ogg", "pill_remove.ogg"]
+  license: "CC-BY-NC-SA-3.0"
+  copyright: "Amateur foley and audio editing by Bright0."
+  source: "https://github.com/space-wizards/space-station-14/commit/26624f22f6329b1c8d3c122ddafff01da7277508"
+
+- files: ["teleport_arrival.ogg", "teleport_departure.ogg"]
+  license: "CC-BY-SA-3.0"
+  copyright: "tgstation"
+  source: "https://github.com/tgstation/tgstation/commit/906fb0682bab6a0975b45036001c54f021f58ae7"
+
+- files: ["sadtrombone.ogg"]
+  license: "CC-BY-NC-SA-3.0"
+  copyright: "sadtrombone.ogg by Citadel Station 13"
+  source: "https://github.com/Citadel-Station-13/Citadel-Station-13/commit/35a1723e98a60f375df590ca572cc90f1bb80bd5"
+
+- files: ["box_deploy.ogg"]
+  license: "CC-BY-NC-SA-3.0"
+  copyright: "box_deploy.ogg by Citadel Station 13"
+  source: "https://github.com/Citadel-Station-13/Citadel-Station-13/commit/b604390f334343be80045d955705cf48ee056c61"
+
+- files: ["chime.ogg"]
+  license: "CC-BY-NC-SA-3.0"
+  copyright: "chime.ogg by Citadel Station 13"
+  source: "https://github.com/Citadel-Station-13/Citadel-Station-13/commit/b604390f334343be80045d955705cf48ee056c61"
+
+- files: ["tree_fell.ogg"]
+  license: "CC0-1.0"
+  copyright: '"Tree falls in a forest." by felix.blume of Freesound.org. Cropped and mixed from stereo to mono.'
+  source: "https://freesound.org/people/felix.blume/sounds/414093/"
+
+- files: ["beep1.ogg"]
+  license: "CC0-1.0"
+  copyright: '"beep1.wav" by thisusernameis of Freesound.org. Mixed from stereo to mono.'
+  source: "https://freesound.org/people/thisusernameis/sounds/426891/"
+
+- files: ["hallelujah.ogg"]
+  license: "CC-BY-SA-3.0"
+  copyright: "Composer: Georg Friedrich Händel; Performed by: MIT Concert Choir; Directed by William C. Cutter; Cropped and mixed from stereo to mono."
+  source: "https://en.wikipedia.org/wiki/File:Handel_-_messiah_-_44_hallelujah.ogg"
+
+- files: ["fence_rattle1.ogg", "fence_rattle2.ogg", "fence_rattle3.ogg"]
+  license: "CC0-1.0"
+  copyright: '"Chain Link Fence - Impacts.wav" by MWsfx of Freesound.org. Cropped and mixed from stereo to mono.'
+  source: "https://freesound.org/people/MWsfx/sounds/575388/"
+
+- files: ["falling.ogg"]
+  license: "CC0-1.0"
+  copyright: '"Retro, Drop 02.wav" by MATRIXXX_ of Freesound.org. Mixed from stereo to mono.'
+  source: "https://freesound.org/people/MATRIXXX_/sounds/415990/"
+
+- files: ["break_stone.ogg"]
+  license: "CC-BY-SA-3.0"
+  copyright: "tgstation"
+  source: "https://github.com/tgstation/tgstation/blob/e3a835b96043fad1269ee7b0c3a6cb340a466f3a/sound/effects/break_stone.ogg"
+
+### Voice/Talk
+- files: ["arachnid.ogg", "arachnid_ask.ogg", "arachnid_exclaim.ogg"]
+  license: "CC-BY-4.0"
+  copyright: "Recorded by https://github.com/PixelTheKermit"
+  source: "https://github.com/space-wizards/space-station-14/pull/13945"
+
+- files: ["pai.ogg", "pai_ask.ogg", "pai_exclaim.ogg"]
+  license: "CC-BY-3.0"
+  copyright: "hubismal on GitHub"
+  source: "https://github.com/space-wizards/space-station-14/commit/3421e4f4de2613df1e92a4169a778335bc9faac4"
+
+- files: [
+    "speak_1_ask.ogg",
+    "speak_1_exclaim.ogg",
+    "speak_1.ogg",
+    "speak_2_ask.ogg",
+    "speak_2_exclaim.ogg",
+    "speak_2.ogg",
+    "speak_3_ask.ogg",
+    "speak_3_exclaim.ogg",
+    "speak_3.ogg",
+    "speak_4_ask.ogg",
+    "speak_4_exclaim.ogg",
+    "speak_4.ogg",
+    "lizard.ogg",
+    "lizard_ask.ogg",
+    "lizard_exclaim.ogg",
+    "slime.ogg",
+    "slime_ask.ogg",
+    "slime_exclaim.ogg",
+  ]
+  license: "CC-BY-NC-SA-3.0"
+  copyright: "Goonstation, Modified by Whisper"
+  source: "https://github.com/goonstation/goonstation/tree/eb3e7df6292d23f6af2f18b4372d3a8ba4b0fda7/sound/misc/talk"
+
+- files: ["vox.ogg","vox_ask.ogg","vox_exclaim.ogg" ]
+  license: "CC-BY-SA-3.0"
+  copyright: "Derived from shriek1.ogg (originally from Paradise Station) by Errant"
+  source: "https://github.com/ParadiseSS13/Paradise/commit/43e60ab01eda88fe30eb93612614bde836e55fe4"
+
+- files: ["vulp.ogg, vulp_ask.ogg, vulp_exclaim.ogg"]
+  license: "CC-BY-NC-SA-3.0"
+  copyright: "pug.ogg (Renamed to vulp.ogg), pug_ask.ogg (Renamed to vulp_ask.ogg, pug_exclaim.ogg (Renamed to vulp_exclaim.ogg) all taken from: https://github.com/goonstation/goonstation/commit/da7c8965c4552ca53af367e6c83a83da2affe790"
+  source: "https://github.com/goonstation/goonstation/commit/da7c8965c4552ca53af367e6c83a83da2affe790"
+### Voice/Human
+- files: ["female_sigh.ogg", "male_sigh.ogg"]
+  license: "CC-BY-3.0"
+  copyright: "https://github.com/ss220-space/Paradise/"
+  source: "https://github.com/ss220-space/Paradise/commit/89943a231ced9fc8db0aef65ff87093efee16b4e"
+
+- files:
+  - whistle_1.ogg
+  - whistle_2.ogg
+  - whistle_3.ogg
+  license: "CC0-1.0"
+  copyright: "Taken from https://freesound.org/"
+  source: "https://freesound.org/people/taure/sounds/411638/"
+
+- files:
+  - whistle_4.ogg
+  license: "Custom"
+  copyright: "Sampling Plus 1.0 license. Taken from https://freesound.org/"
+  source: "https://freesound.org/people/jackstrebor/sounds/34782/"
+
+- files:
+  - cry_male_1
+  - cry_male_2
+  license: "CC-BY-4.0"
+  copyright: "Taken from https://freesound.org/. Convert from WAV to OGG, is divided into several parts."
+  source: "https://freesound.org/people/jacobmathiassen/sounds/254869/"
+
+- files:
+  - cry_male_3.ogg
+  license: "CC0-1.0"
+  copyright: "Taken from https://freesound.org/"
+  source: "https://freesound.org/people/scottemoil/sounds/263776/"
+
+- files:
+  - cry_male_4.ogg
+  license: "CC-BY-4.0"
+  copyright: "Taken from https://freesound.org/. Converted from FLAC to OGG, some part of the sound is taken."
+  source: "https://freesound.org/people/qubodup/sounds/200428/"
+
+- files:
+  - cry_female_1.ogg
+  - cry_female_2.ogg
+  license: "CC-BY-NC-3.0"
+  copyright: "Taken from https://freesound.org/. Convert from WAV to OGG, is divided into several parts."
+  source: "https://freesound.org/people/Luzanne0/sounds/445299/"
+
+- files:
+  - cry_female_3.ogg
+  - cry_female_4.ogg
+  license: "CC-BY-NC-4.0"
+  copyright: "Taken from https://freesound.org/. Convert from WAV to OGG, is divided into several parts."
+  source: "https://freesound.org/people/Idalize/sounds/408211/"
+
+- files:
+  - femalescream_1.ogg
+  - femalescream_2.ogg
+  - femalescream_3.ogg
+  - femalescream_4.ogg
+  - femalescream_5.ogg
+  - malescream_1.ogg
+  - malescream_2.ogg
