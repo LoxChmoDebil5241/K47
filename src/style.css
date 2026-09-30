@@ -641,3 +641,13 @@ body.no-fx .post, body.no-fx #reader::before { display: none; }
 .pr-mk.node.fort i { box-shadow: 0 0 0 3px #e8fbff, 0 0 14px var(--c); }
 .pr-mk.node.sel span { color: #fff; } .pr-mk.node span { color: #cfeaff; }
 .pr-root.war .pr-req { top: 64px; }
+/* глава 10 «Щит» */
+.sh-root { position: relative; width: 100%; height: 100%; overflow: hidden; background: #000; touch-action: none; }
+.sh-3d, .sh-2d { position: absolute; inset: 0; width: 100%; height: 100%; }
+.sh-hud { position: absolute; top: max(8px, env(safe-area-inset-top)); left: 12px; right: 12px; display: flex; justify-content: space-between; font: clamp(7px, 2vw, 11px)/1.4 var(--f-pixel); color: #ffb0a0; text-shadow: 0 0 6px #f00; pointer-events: none; }
+.sh-ammo { position: absolute; right: 16px; bottom: 70px; font: clamp(10px, 3vw, 16px)/1 var(--f-pixel); color: #ffd62a; text-shadow: 0 0 8px #a80; pointer-events: none; }
+.sh-reload { position: absolute; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); font: clamp(7px, 1.8vw, 9px)/1 var(--f-pixel); color: #fff; background: rgba(60,10,10,.8); border: 1px solid #ff5040; padding: 12px 14px; }
+.sh-reload:active { background: #a02010; }
+.sh-blood { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(circle, transparent 40%, rgba(140,0,0,.85) 100%); }
+.sh-root .sh-msg { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); margin: 0; font: clamp(8px, 2.2vw, 12px)/1.4 var(--f-pixel); color: #fff; opacity: 0; transition: opacity .4s; pointer-events: none; text-align: center; }
+.sh-root .sh-msg.on { opacity: 1; } .sh-root .sh-msg.warn { color: #ff8070; }
