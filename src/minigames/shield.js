@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { sfx, storm, war as snd } from '../audio.js';
+import { sfx, storm, war as snd, sample, preload } from '../audio.js';
 import smgUrl from '../assets/smg.png';
 
 // Глава 10 «Щит» — К-21 держит коридор, пока учёные уходят к челноку. Стиль — как Sierra 7:
@@ -20,6 +20,11 @@ export default {
     const $ = (q) => root.querySelector(q);
     const c3 = $('.sh-3d'), c2 = $('.sh-2d'), g = c2.getContext('2d');
     const gun = new Image(); gun.src = smgUrl;
+    // звуки из SS14: наш ПП, стволы рейдеров, мясо, рикошеты, магазин, затвор
+    const SND = ['guns/smg', 'guns/c-20r', 'guns/lmg', 'guns/shotgun', 'guns/rifle', 'guns/bullet_meat1', 'guns/bullet_meat2', 'guns/bullet_meat3', 'guns/bullet_meat4', 'guns/ric1', 'guns/ric2', 'guns/ric3', 'guns/smg_magin', 'guns/smg_cock', 'guns/empty', 'guns/casing_fall_1', 'guns/casing_fall_2', 'guns/casing_fall_3', 'guns/lmg_bolt_open', 'guns/lmg_bolt_closed'];
+    preload(SND);
+    const pickS = (...a) => a[Math.floor(Math.random() * a.length)];
+    const meat = () => sample(`guns/bullet_meat${1 + Math.floor(Math.random() * 4)}`, 1.4) || snd.meat();
 
     // ---------- 3D коридор: плоские серые материалы + контуры рёбер ----------
     const renderer = new THREE.WebGLRenderer({ canvas: c3, antialias: true });
@@ -75,7 +80,7 @@ export default {
     const coverOn = (e) => { e.preventDefault(); e.stopPropagation(); if (!st.cover) { st.cover = true; sfx.click(); } };
     const coverOff = (e) => { e?.stopPropagation(); st.cover = false; };
     cov.addEventListener('pointerdown', coverOn); cov.addEventListener('pointerup', coverOff); cov.addEventListener('pointercancel', coverOff); cov.addEventListener('pointerleave', coverOff);
-    const reload = () => { if (st.reload > 0 || st.ammo === MAG) return; st.reload = 1.5; storm.lever(); };
+    const reload = () => { if (st.reload > 0 || st.ammo === MAG) return; st.reload = 1.5; sample('guns/lmg_bolt_open', 1.2); setTimeout(() => sample('guns/smg_magin', 1.3), 550); };
     $('.sh-reload').addEventListener('pointerdown', (e) => { e.stopPropagation(); reload(); });
     const kd = (e) => { if (e.key === 'r' || e.key === 'к') reload(); if (e.key === ' ' || e.key === 'Shift') st.cover = e.type === 'keydown'; };
     addEventListener('keydown', kd); addEventListener('keyup', kd);
@@ -121,8 +126,8 @@ export default {
 
     function shoot() {
       if (st.reload > 0 || st.coverK > 0.3) return;
-      if (st.ammo <= 0) { reload(); return; }
-      st.ammo--; st.recoil = 1; st.cool = 0.085; snd.loud('smg'); st.flash = 1; st.shake = Math.max(st.shake, 0.15);
+      if (st.ammo <= 0) { sample('guns/empty', 1); reload(); return; }
+      st.ammo--; st.recoil = 1; st.cool = 0.085; (sample('guns/smg', 1.6) || snd.loud('smg')); if (Math.random() < 0.3) setTimeout(() => sample(`guns/casing_fall_${1 + Math.floor(Math.random() * 3)}`, 0.5), 250); st.flash = 1; st.shake = Math.max(st.shake, 0.15);
       const w = c2.clientWidth, h = c2.clientHeight, sx = (st.aim.x + 1) / 2 * w, sy = (st.aim.y + 1) / 2 * h;
       // попадание по видимой части рейдера (ближние — первыми)
       const hit = st.foes.filter((f) => !f.dead && f.up > 0.4).sort((a, b) => b.z - a.z).find((f) => {
@@ -132,9 +137,9 @@ export default {
       if (hit) {
         const b = foeBox(hit, w, h), head = sy < b.top + 0.35 * b.s;
         hit.hp -= head ? 1 : 0.45;
-        splat(sx, sy, head ? 1.4 : 0.8, b.s); snd.meat();
+        splat(sx, sy, head ? 1.4 : 0.8, b.s); meat();
         if (hit.hp <= 0) { hit.dead = 0.001; st.kills++; if (head) say('В голову.'); snd.fall(); }
-      } else st.splats.push({ x: sx, y: sy, r: 3, dust: 1, t: 0 });
+      } else { st.splats.push({ x: sx, y: sy, r: 3, dust: 1, t: 0 }); if (Math.random() < 0.35) sample(`guns/ric${1 + Math.floor(Math.random() * 3)}`, 0.7); }
     }
     function splat(x, y, k, s) { for (let i = 0; i < 6 * k; i++) st.splats.push({ x: x + (Math.random() - 0.5) * s * 0.2, y: y + (Math.random() - 0.5) * s * 0.2, r: (0.02 + Math.random() * 0.05) * s * k, vx: (Math.random() - 0.5) * 80, vy: -Math.random() * 60, t: 0 }); }
 
@@ -200,7 +205,7 @@ export default {
       if (st.cover && st.ammo < MAG && st.reload <= 0) reload();
       st.cool -= dt; if (st.fire && st.cool <= 0) shoot();
       st.recoil = Math.max(0, st.recoil - dt * 9);
-      if (st.reload > 0) { st.reload -= dt; if (st.reload <= 0) { st.ammo = MAG; storm.lock(); } }
+      if (st.reload > 0) { st.reload -= dt; if (st.reload <= 0) { st.ammo = MAG; sample('guns/lmg_bolt_closed', 1.3) || sample('guns/smg_cock', 1.2); } }
       // рейдеры: прячутся → поднимаются → целятся → стреляют → прячутся
       const hard = 1 + st.t / DURATION;
       for (const f of st.foes) {
@@ -217,8 +222,8 @@ export default {
       for (const f of st.foes) if (f.state === 'fire' && !f.dead) {
         f.shot = (f.shot || 0) - dt;
         if (f.shot <= 0) {
-          f.shot = 0.18; snd.loud(Math.random() < 0.7 ? 'smg' : 'shotgun');
-          if (st.coverK < 0.5 && Math.random() < 0.28) { st.hp -= 3 + Math.random() * 3; st.shake = 1; st.blood = 1; st.flash = 1; snd.meat(); }
+          f.shot = 0.18; const gs = pickS('guns/c-20r', 'guns/lmg', 'guns/rifle', 'guns/shotgun'); (sample(gs, 1.2, 0.95) || snd.loud('smg'));
+          if (st.coverK < 0.5 && Math.random() < 0.28) { st.hp -= 3 + Math.random() * 3; st.shake = 1; st.blood = 1; st.flash = 1; meat(); }
         }
       }
       st.shake = Math.max(0, st.shake - dt * 3); st.blood = Math.max(0, st.blood - dt);

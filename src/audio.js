@@ -280,3 +280,35 @@ export function startAmbience() {
   wG.gain.value = 0.02;
   wind.connect(wF).connect(wG).connect(master); wind.start();
 }
+
+// ---- сэмплы (файлы из public/audio): громко, с сильным басом ----
+const bufs = {}, loading = {};
+let fxBus = null;
+function bus() {
+  if (fxBus || !ctx) return fxBus;
+  // бас-буст → перегруз → компрессор-лимитер
+  const low = ctx.createBiquadFilter(); low.type = 'lowshelf'; low.frequency.value = 160; low.gain.value = 14;
+  const mid = ctx.createBiquadFilter(); mid.type = 'peaking'; mid.frequency.value = 2500; mid.gain.value = 4;
+  const drive = ctx.createWaveShaper(); const n = 1024, c = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = Math.tanh(x * 2.2); }
+  drive.curve = c;
+  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -12; comp.ratio.value = 8; comp.attack.value = 0.002; comp.release.value = 0.15;
+  const out = ctx.createGain(); out.gain.value = 1.6;
+  low.connect(mid).connect(drive).connect(comp).connect(out).connect(master);
+  return (fxBus = low);
+}
+export function preload(names) {
+  if (!ctx) return;
+  for (const n of names) {
+    if (bufs[n] || loading[n]) continue;
+    loading[n] = fetch(`audio/${n}.ogg`).then((r) => r.arrayBuffer()).then((a) => ctx.decodeAudioData(a)).then((b) => (bufs[n] = b)).catch(() => {});
+  }
+}
+// проиграть сэмпл; false — если ещё не загружен (тогда можно синтез)
+export function sample(n, vol = 1, rate = 1) {
+  if (!ctx || !bufs[n]) { preload([n]); return false; }
+  const s = ctx.createBufferSource(), g = ctx.createGain();
+  s.buffer = bufs[n]; s.playbackRate.value = rate * (0.94 + Math.random() * 0.12); g.gain.value = vol;
+  s.connect(g).connect(bus()); s.start();
+  return true;
+}
