@@ -59,7 +59,52 @@ export default {
     const COVERS = [[-0.95, -5.5, 1, 0.9], [0.9, -7.5, 1.2, 1], [-0.7, -10, 0.9, 1.1], [0.85, -12.5, 1, 0.9], [-0.9, -15, 1.1, 1]];
     for (const [x, z, w, h] of COVERS) block(w, h, 0.6, x, h / 2, z, 0x5e5a52);
     scene.add(new THREE.AmbientLight(0xffffff, 1.3));
+    const gunLight = new THREE.PointLight(0xffffff, 1.5, 2); camera.add(gunLight); gunLight.position.set(0.3, 0.3, 0);
     const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(1, 3, 2); scene.add(sun);
+
+
+    // ---------- 3D оружие и руки (вид от первого лица, привязаны к камере) ----------
+    scene.add(camera);
+    const vm = new THREE.Group(); camera.add(vm);
+    const M = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, metalness: 0.3, ...o });
+    const BLK = M(0x1c1e1f, { metalness: 0.5 }), DRK = M(0x2c3031), GRN = M(0x3e4c44, { roughness: 0.7 }), GLV = M(0x1a1a1a, { roughness: 0.9 });
+    const box = (w, h, d, m, x, y, z, p = vm) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); p.add(b); const e = new THREE.LineSegments(new THREE.EdgesGeometry(b.geometry), EDGE); b.add(e); return b; };
+    const cyl = (r, l, m, x, y, z, p = vm) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 12), m); c.rotation.x = Math.PI / 2; c.position.set(x, y, z); p.add(c); return c; };
+    const gunG = new THREE.Group(); vm.add(gunG); gunG.scale.setScalar(0.75);
+    // ПП как на референсе: короб, длинный ствол-кожух, рукоять, магазин, планка с прицелом, жёлтая шкала, зелёный диод
+    box(0.07, 0.09, 0.42, BLK, 0, 0, -0.1, gunG);
+    box(0.055, 0.06, 0.28, DRK, 0, -0.005, -0.42, gunG);
+    cyl(0.016, 0.12, BLK, 0, 0.005, -0.61, gunG);
+    box(0.04, 0.13, 0.05, DRK, 0, -0.1, 0.02, gunG).rotation.x = -0.25;
+    box(0.035, 0.16, 0.06, BLK, 0, -0.12, -0.2, gunG).rotation.x = 0.12;
+    box(0.03, 0.05, 0.2, BLK, 0, 0.07, -0.12, gunG);
+    cyl(0.022, 0.1, DRK, 0, 0.11, -0.1, gunG);
+    box(0.05, 0.08, 0.2, DRK, 0, -0.01, 0.2, gunG);
+    const leds = [];
+    for (let i = 0; i < 10; i++) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.008, 0.014), new THREE.MeshBasicMaterial({ color: 0xffd62a })); l.position.set(0.037, 0.03, -0.3 + i * 0.022); gunG.add(l); leds.push(l); }
+    const led = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.02, 0.01), new THREE.MeshBasicMaterial({ color: 0x40ff70 })); led.position.set(0.037, 0, -0.02); gunG.add(led);
+    const flash = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.35), new THREE.MeshBasicMaterial({ color: 0xffd080, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, map: (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); const r = x.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, '#fff'); r.addColorStop(0.3, '#ffc860'); r.addColorStop(1, 'rgba(255,120,20,0)'); x.fillStyle = r; x.beginPath(); for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2, rr = i % 2 ? 12 : 32; x.lineTo(32 + Math.cos(a) * rr, 32 + Math.sin(a) * rr); } x.fill(); return new THREE.CanvasTexture(c); })() }));
+    flash.position.set(0, 0.005, -0.72); gunG.add(flash);
+    const mlight = new THREE.PointLight(0xffc070, 0, 4, 1.5); mlight.position.set(0, 0, -0.8); gunG.add(mlight);
+    // руки: бронированные рукава (пластины) и перчатки
+    function arm(side, hand) {
+      const a = new THREE.Group(); vm.add(a);
+      const up = box(0.13, 0.12, 0.4, GRN, 0, 0, 0.2, a);
+      box(0.15, 0.05, 0.14, DRK, 0, 0.07, 0.3, a);
+      for (let k = 0; k < 3; k++) box(0.14, 0.02, 0.03, DRK, 0, 0.065, 0.05 + k * 0.1, a);
+      box(0.09, 0.09, 0.12, GLV, 0, -0.01, -0.05, a);
+      for (let k = 0; k < 4; k++) box(0.02, 0.025, 0.05, GLV, -0.035 + k * 0.023, -0.04, -0.1, a);
+      a.userData = { side, hand, up }; a.scale.setScalar(0.75);
+      return a;
+    }
+    const armR = arm(1), armL = arm(-1);
+    // поставить руку от плеча к кисти
+    const tq = new THREE.Vector3(), tq2 = new THREE.Vector3();
+    function aimArm(a, shoulder, handLocal) {
+      tq.copy(handLocal); gunG.localToWorld(tq); vm.worldToLocal(tq);
+      a.position.copy(tq); a.lookAt(tq2.copy(shoulder).applyMatrix4(vm.matrixWorld));
+      a.rotateY(Math.PI);
+    }
 
     // ---------- состояние ----------
     const st = {
@@ -234,6 +279,17 @@ export default {
       const zoom = 1 + Math.sin(st.t * 1.3) * 0.03 + Math.sin(st.t * 3.7) * 0.015 + st.shake * 0.05;
       const blur = Math.max(0, Math.sin(st.t * 0.9) * 1.6 + st.blood * 2);
       root.style.setProperty('--z', zoom.toFixed(3)); root.style.setProperty('--bl', `${blur.toFixed(1)}px`); root.style.setProperty('--fl', st.flash.toFixed(2));
+
+      // оружие: покачивание, отдача, укрытие, перезарядка
+      const ck = st.coverK, rec = st.recoil, rl = st.reload > 0 ? Math.sin(Math.min(1, (1.5 - st.reload) / 1.5) * Math.PI) : 0;
+      gunG.position.set(0.24 + Math.sin(st.t * 1.6) * 0.006 + st.aim.x * 0.03, -0.2 + Math.cos(st.t * 3.2) * 0.004 - ck * 0.35 - rl * 0.12 - st.aim.y * 0.02, -0.62 + rec * 0.05);
+      gunG.rotation.set(rec * 0.12 + ck * 0.6 + rl * 0.5 - st.aim.y * 0.12, -st.aim.x * 0.15 + 0.04, rl * 0.6 + ck * 0.3);
+      flash.visible = rec > 0.6; flash.rotation.z = Math.random() * 6; flash.scale.setScalar(0.7 + Math.random() * 0.6); mlight.intensity = rec > 0.6 ? 5 : 0;
+      leds.forEach((l, i) => (l.visible = i < Math.ceil((st.ammo / MAG) * 10)));
+      led.material.color.set(st.reload > 0 ? 0xff3020 : 0x40ff70);
+      vm.updateMatrixWorld(true);
+      aimArm(armR, new THREE.Vector3(0.5, -0.6, 0.1), new THREE.Vector3(0, -0.13, 0.03));
+      aimArm(armL, new THREE.Vector3(-0.3, -0.65, -0.1), new THREE.Vector3(0, -0.06, -0.4 + rl * 0.3));
       renderer.render(scene, camera);
       // 2D
       g.clearRect(0, 0, w, h);
@@ -245,7 +301,6 @@ export default {
         p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt;
         g.fillStyle = `rgba(190,0,0,${1 - p.t / 1.2})`; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.fill();
       }
-      drawArms(w, h);
       // прицел
       if (st.coverK < 0.3) {
         const cx = (st.aim.x + 1) / 2 * w, cy = (st.aim.y + 1) / 2 * h, cr = 9 + st.recoil * 8;
